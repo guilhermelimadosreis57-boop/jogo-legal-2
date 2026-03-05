@@ -69,7 +69,7 @@ class Game {
         });
 
         // Evento customizado para saber quando o jogo realmente começou (após fechar o menu)
-        this.player.controls.addEventListener('lock', () => {
+        window.addEventListener('game-start-actual', () => {
             if (!this.gameStarted) {
                 this.gameStarted = true;
                 this.startPreparationPhase();

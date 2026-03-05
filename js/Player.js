@@ -65,26 +65,35 @@ export class Player {
 
         // Click para travar o mouse e iniciar contagem
         const startBtn = document.getElementById('start-btn');
-        startBtn.style.pointerEvents = 'auto'; // Garante que o botão seja clicável
 
         startBtn.addEventListener('click', () => {
-            let countdown = 3;
-            startBtn.innerText = countdown;
-            startBtn.disabled = true;
-
-            const timer = setInterval(() => {
-                countdown--;
-                if (countdown > 0) {
-                    startBtn.innerText = countdown;
-                } else {
-                    clearInterval(timer);
-                    this.controls.lock();
-                }
-            }, 1000);
+            // Chamamos o lock imediatamente para garantir a permissão do navegador
+            this.controls.lock();
         });
 
         this.controls.addEventListener('lock', () => {
-            document.getElementById('menu-overlay').classList.add('hidden');
+            const menu = document.getElementById('menu-overlay');
+            const startBtn = document.getElementById('start-btn');
+
+            // Se o menu ainda está visível, iniciamos a contagem regressiva
+            if (!menu.classList.contains('hidden')) {
+                let countdown = 3;
+                startBtn.disabled = true;
+                startBtn.innerText = countdown;
+
+                const timer = setInterval(() => {
+                    countdown--;
+                    if (countdown > 0) {
+                        startBtn.innerText = countdown;
+                    } else {
+                        clearInterval(timer);
+                        menu.classList.add('hidden');
+                        startBtn.innerText = "INICIAR OPERAÇÃO";
+                        startBtn.disabled = false;
+                        window.dispatchEvent(new CustomEvent('game-start-actual'));
+                    }
+                }, 1000);
+            }
         });
 
         this.controls.addEventListener('unlock', () => {
