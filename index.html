@@ -317,8 +317,8 @@
         <h1>PROTOCOLO SUCATA</h1>
         <div class="rules-box">
             <div class="hl" style="margin-bottom:10px;font-size:0.85rem;">OBJETIVO: SOBREVIVER A 7 HORDAS</div>
-            <div>🕐 <span class="hl">PREPARAÇÃO (3 MIN):</span> Colete suprimentos. Sem inimigos.</div>
-            <div>⚔️ <span class="hl">HORDA (6 MIN):</span> Robôs atacam de todas as direções!</div>
+            <div>🕐 <span class="hl">PREPARAÇÃO (2 MIN):</span> Colete suprimentos. Sem inimigos.</div>
+            <div>⚔️ <span class="hl">HORDA (3 MIN):</span> Robôs atacam de todas as direções!</div>
             <div>🟡 Amarelo = Munição &nbsp;|&nbsp; 🟢 Verde = +25 HP &nbsp;|&nbsp; 🔴 Vermelho = Granada</div>
             <div>💀 HP chega a 0 = GAME OVER. A dificuldade aumenta a cada onda.</div>
         </div>
@@ -381,7 +381,8 @@
         let scene, camera, renderer, clock;
         let enemies = [], loots = [];
         let currentWave = 1, maxWaves = 7;
-        let phase = 'WAITING', timer = 180, gameStarted = false;
+        let phase = 'WAITING', timer = 120, gameStarted = false;
+        let isReloading = false;
 
         // Player state
         const player = {
@@ -495,7 +496,7 @@
         }
 
         function shootWeapon() {
-            if (player.ammo <= 0) return false;
+            if (player.ammo <= 0 || isReloading) return false;
             player.ammo--;
             const flash = new THREE.PointLight(0x00f2ff, 5, 2);
             flash.position.set(0.2, -0.2, -1);
@@ -581,11 +582,18 @@
         }
 
         function reloadGun() {
+            if (isReloading) return;
             if (player.ammo < player.maxAmmo && player.totalAmmo > 0) {
-                const need = player.maxAmmo - player.ammo;
-                const take = Math.min(need, player.totalAmmo);
-                player.ammo += take;
-                player.totalAmmo -= take;
+                isReloading = true;
+                document.getElementById('weapon-name').innerText = 'RECARREGANDO...';
+                setTimeout(() => {
+                    const need = player.maxAmmo - player.ammo;
+                    const take = Math.min(need, player.totalAmmo);
+                    player.ammo += take;
+                    player.totalAmmo -= take;
+                    isReloading = false;
+                    document.getElementById('weapon-name').innerText = 'RIFLE DE PULSO M1';
+                }, 2000);
             }
         }
 
@@ -619,7 +627,7 @@
             const dirX = Number(player.moveR) - Number(player.moveL);
             const len = Math.sqrt(dirZ * dirZ + dirX * dirX) || 1;
 
-            const speed = player.isRunning ? 400 : 200;
+            const speed = player.isRunning ? 200 : 100;
             vel.z -= (dirZ / len) * speed * dt;
             vel.x -= (dirX / len) * speed * dt;
 
@@ -669,7 +677,7 @@
             return {
                 mesh: group,
                 hp: 50 * difficulty,
-                speed: 2 + difficulty * 0.5,
+                speed: 5 + difficulty * 1.5,
                 damage: 10 * difficulty,
                 alive: true,
                 takeDamage(amt) {
@@ -744,7 +752,7 @@
         // --- FASES DO JOGO ---
         function startPreparation() {
             phase = 'PREPARATION';
-            timer = 180;
+            timer = 120;
             document.getElementById('phase-label').innerText = 'FASE DE PREPARAÇÃO';
             document.getElementById('phase-label').style.color = '#00f2ff';
             spawnLoots();
@@ -753,7 +761,7 @@
 
         function startHorde() {
             phase = 'HORDE';
-            timer = 360;
+            timer = 180;
             document.getElementById('phase-label').innerText = 'HORDA ' + currentWave;
             document.getElementById('phase-label').style.color = '#ff0055';
             showMsg('HORDA ' + currentWave + ' / ' + maxWaves, 'Sobreviva até o tempo acabar!');
