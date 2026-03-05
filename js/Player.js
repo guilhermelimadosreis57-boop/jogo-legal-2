@@ -6,7 +6,6 @@ export class Player {
         this.camera = camera;
         this.controls = new PointerLockControls(camera, domElement);
 
-        // Atributos de Status
         this.hp = 100;
         this.maxHp = 100;
         this.ammo = 30;
@@ -14,7 +13,6 @@ export class Player {
         this.totalAmmo = 90;
         this.grenades = 3;
 
-        // Movimentação
         this.moveForward = false;
         this.moveBackward = false;
         this.moveLeft = false;
@@ -25,12 +23,12 @@ export class Player {
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
 
-        this.initControls();
+        this._initKeyboard();
     }
 
-    initControls() {
-        const onKeyDown = (event) => {
-            switch (event.code) {
+    _initKeyboard() {
+        document.addEventListener('keydown', (e) => {
+            switch (e.code) {
                 case 'ArrowUp':
                 case 'KeyW': this.moveForward = true; break;
                 case 'ArrowLeft':
@@ -39,15 +37,18 @@ export class Player {
                 case 'KeyS': this.moveBackward = true; break;
                 case 'ArrowRight':
                 case 'KeyD': this.moveRight = true; break;
-                case 'Space': if (this.canJump === true) this.velocity.y += 15; this.canJump = false; break;
+                case 'Space':
+                    if (this.canJump) this.velocity.y += 15;
+                    this.canJump = false;
+                    break;
                 case 'ShiftLeft': this.isRunning = true; break;
                 case 'KeyR': this.reload(); break;
                 case 'KeyG': this.throwGrenade(); break;
             }
-        };
+        });
 
-        const onKeyUp = (event) => {
-            switch (event.code) {
+        document.addEventListener('keyup', (e) => {
+            switch (e.code) {
                 case 'ArrowUp':
                 case 'KeyW': this.moveForward = false; break;
                 case 'ArrowLeft':
@@ -58,59 +59,15 @@ export class Player {
                 case 'KeyD': this.moveRight = false; break;
                 case 'ShiftLeft': this.isRunning = false; break;
             }
-        };
-
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
-
-        // Click para travar o mouse e iniciar contagem
-        const startBtn = document.getElementById('start-btn');
-
-        startBtn.addEventListener('click', () => {
-            // Chamamos o lock imediatamente para garantir a permissão do navegador
-            this.controls.lock();
-        });
-
-        this.controls.addEventListener('lock', () => {
-            const menu = document.getElementById('menu-overlay');
-            const startBtn = document.getElementById('start-btn');
-
-            // Se o menu ainda está visível, iniciamos a contagem regressiva
-            if (!menu.classList.contains('hidden')) {
-                let countdown = 3;
-                startBtn.disabled = true;
-                startBtn.innerText = countdown;
-
-                const timer = setInterval(() => {
-                    countdown--;
-                    if (countdown > 0) {
-                        startBtn.innerText = countdown;
-                    } else {
-                        clearInterval(timer);
-                        menu.classList.add('hidden');
-                        startBtn.innerText = "INICIAR OPERAÇÃO";
-                        startBtn.disabled = false;
-                        window.dispatchEvent(new CustomEvent('game-start-actual'));
-                    }
-                }, 1000);
-            }
-        });
-
-        this.controls.addEventListener('unlock', () => {
-            // Apenas mostra o menu se não morreu
-            if (this.hp > 0) {
-                document.getElementById('menu-overlay').classList.remove('hidden');
-            }
         });
     }
 
     update(delta) {
         if (!this.controls.isLocked) return;
 
-        // Gravidade e atrito
         this.velocity.x -= this.velocity.x * 10.0 * delta;
         this.velocity.z -= this.velocity.z * 10.0 * delta;
-        this.velocity.y -= 9.8 * 4.0 * delta; // Gravidade
+        this.velocity.y -= 9.8 * 4.0 * delta;
 
         this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
         this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
@@ -124,11 +81,11 @@ export class Player {
         this.controls.moveRight(-this.velocity.x * delta);
         this.controls.moveForward(-this.velocity.z * delta);
 
-        this.controls.getObject().position.y += (this.velocity.y * delta);
+        this.controls.getObject().position.y += this.velocity.y * delta;
 
         if (this.controls.getObject().position.y < 2) {
             this.velocity.y = 0;
-            this.controls.getObject().position.y = 2; // Altura dos olhos
+            this.controls.getObject().position.y = 2;
             this.canJump = true;
         }
 
@@ -136,11 +93,8 @@ export class Player {
     }
 
     takeDamage(amount) {
-        this.hp -= amount;
-        if (this.hp <= 0) {
-            this.hp = 0;
-            this.die();
-        }
+        this.hp = Math.max(0, this.hp - amount);
+        if (this.hp <= 0) this.die();
     }
 
     reload() {
@@ -153,10 +107,7 @@ export class Player {
     }
 
     throwGrenade() {
-        if (this.grenades > 0) {
-            this.grenades--;
-            console.log("Grenade thrown!");
-        }
+        if (this.grenades > 0) this.grenades--;
     }
 
     updateUI() {
@@ -169,12 +120,10 @@ export class Player {
 
     die() {
         this.controls.unlock();
-        const title = document.getElementById('msg-title');
-        const desc = document.getElementById('msg-desc');
-        title.innerText = "VOCÊ FOI DESMANTELADO";
-        desc.innerText = "O Protocolo Sucata falhou.";
-        document.getElementById('message-overlay').classList.remove('hidden');
-
+        document.getElementById('msg-title').innerText = 'VOCÊ FOI DESMANTELADO';
+        document.getElementById('msg-desc').innerText = 'O Protocolo Sucata falhou.';
+        const msg = document.getElementById('message-overlay');
+        msg.classList.remove('hidden');
         setTimeout(() => location.reload(), 3000);
     }
 }
