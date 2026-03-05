@@ -317,8 +317,8 @@
         <h1>PROTOCOLO SUCATA</h1>
         <div class="rules-box">
             <div class="hl" style="margin-bottom:10px;font-size:0.85rem;">OBJETIVO: SOBREVIVER A 7 HORDAS</div>
-            <div>🕐 <span class="hl">PREPARAÇÃO (2 MIN):</span> Colete suprimentos. Sem inimigos.</div>
-            <div>⚔️ <span class="hl">HORDA (3 MIN):</span> Robôs atacam de todas as direções!</div>
+            <div>🕐 <span class="hl">PREPARAÇÃO (1 MIN):</span> Colete suprimentos. Sem inimigos.</div>
+            <div>⚔️ <span class="hl">HORDA (2 MIN):</span> Robôs atacam de todas as direções!</div>
             <div>🟡 Amarelo = Munição &nbsp;|&nbsp; 🟢 Verde = +25 HP &nbsp;|&nbsp; 🔴 Vermelho = Granada</div>
             <div>💀 HP chega a 0 = GAME OVER. A dificuldade aumenta a cada onda.</div>
         </div>
@@ -381,8 +381,10 @@
         let scene, camera, renderer, clock;
         let enemies = [], loots = [];
         let currentWave = 1, maxWaves = 7;
-        let phase = 'WAITING', timer = 120, gameStarted = false;
+        let phase = 'WAITING', timer = 60, gameStarted = false;
         let isReloading = false;
+        let grenadeProjectiles = [];
+        let obstacles = []; // Lista de bounding boxes dos obstáculos para colisão
 
         // Player state
         const player = {
@@ -445,15 +447,20 @@
             addWall(-50, 5, 0, 1, 10, 100);
             addWall(50, 5, 0, 1, 10, 100);
 
-            // Obstáculos
-            addBox(10, 2, 10, 4, 4, 4);
-            addBox(-15, 2, 5, 6, 4, 3);
-            addBox(5, 1, -20, 3, 2, 8);
-            addBox(-20, 3, -15, 5, 6, 5);
-            addBox(20, 2, 20, 8, 4, 8);
-            addBox(-30, 2, 25, 4, 4, 6);
-            addBox(35, 1.5, -10, 5, 3, 5);
-            addBox(-10, 2, -35, 6, 4, 4);
+            // Obstáculos (com colisão)
+            obstacles.push(addBox(10, 2, 10, 4, 4, 4));
+            obstacles.push(addBox(-15, 2, 5, 6, 4, 3));
+            obstacles.push(addBox(5, 1, -20, 3, 2, 8));
+            obstacles.push(addBox(-20, 3, -15, 5, 6, 5));
+            obstacles.push(addBox(20, 2, 20, 8, 4, 8));
+            obstacles.push(addBox(-30, 2, 25, 4, 4, 6));
+            obstacles.push(addBox(35, 1.5, -10, 5, 3, 5));
+            obstacles.push(addBox(-10, 2, -35, 6, 4, 4));
+            // Paredes também são obstáculos
+            obstacles.push({ min: new THREE.Vector3(-50, 0, -50.5), max: new THREE.Vector3(50, 10, -49.5) });
+            obstacles.push({ min: new THREE.Vector3(-50, 0, 49.5), max: new THREE.Vector3(50, 10, 50.5) });
+            obstacles.push({ min: new THREE.Vector3(-50.5, 0, -50), max: new THREE.Vector3(-49.5, 10, 50) });
+            obstacles.push({ min: new THREE.Vector3(49.5, 0, -50), max: new THREE.Vector3(50.5, 10, 50) });
 
             // Luzes
             scene.add(new THREE.AmbientLight(0x404040, 1));
@@ -476,6 +483,11 @@
             const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x00f2ff }));
             m.add(edges);
             scene.add(m);
+            // Retorna bounding box para colisão
+            return {
+                min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
+                max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)
+            };
         }
 
         // --- ARMA (visual) ---
@@ -600,17 +612,67 @@
         function throwGrenade() {
             if (player.grenades > 0) {
                 player.grenades--;
-                // Explosão de granada: dano em área
-                enemies.forEach(en => {
-                    if (!en.alive) return;
-                    const dist = en.mesh.position.distanceTo(camera.position);
-                    if (dist < 10) en.takeDamage(80);
+                // Criar projétil de granada
+                const grenadeMesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.15, 8, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x444444, emissive: 0xff2200, emissiveIntensity: 0.5 })
+                );
+                grenadeMesh.position.copy(camera.position);
+                scene.add(grenadeMesh);
+
+                // Direção para frente do jogador + arco para cima
+                const fwd = new THREE.Vector3();
+                camera.getWorldDirection(fwd);
+                const grenadeVel = fwd.clone().multiplyScalar(15);
+                grenadeVel.y = 5; // arco para cima
+
+                grenadeProjectiles.push({
+                    mesh: grenadeMesh,
+                    velocity: grenadeVel,
+                    timer: 1.5 // explode após 1.5s
                 });
-                // Flash visual
-                const flash = new THREE.PointLight(0xff4400, 10, 15);
-                flash.position.copy(camera.position);
-                scene.add(flash);
-                setTimeout(() => scene.remove(flash), 300);
+            }
+        }
+
+        function updateGrenades(dt) {
+            for (let i = grenadeProjectiles.length - 1; i >= 0; i--) {
+                const g = grenadeProjectiles[i];
+                g.velocity.y -= 15 * dt; // gravidade
+                g.mesh.position.addScaledVector(g.velocity, dt);
+                g.mesh.rotation.x += dt * 5;
+                g.timer -= dt;
+
+                // Parou no chão
+                if (g.mesh.position.y <= 0.15) {
+                    g.mesh.position.y = 0.15;
+                    g.velocity.x *= 0.9;
+                    g.velocity.z *= 0.9;
+                    g.velocity.y = 0;
+                }
+
+                // Explodir
+                if (g.timer <= 0) {
+                    // Dano em área
+                    enemies.forEach(en => {
+                        if (!en.alive) return;
+                        const dist = en.mesh.position.distanceTo(g.mesh.position);
+                        if (dist < 10) en.takeDamage(80);
+                    });
+                    // Efeito visual
+                    const flash = new THREE.PointLight(0xff4400, 15, 20);
+                    flash.position.copy(g.mesh.position);
+                    scene.add(flash);
+                    // Esfera de explosão
+                    const boom = new THREE.Mesh(
+                        new THREE.SphereGeometry(3, 12, 12),
+                        new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.6 })
+                    );
+                    boom.position.copy(g.mesh.position);
+                    scene.add(boom);
+                    setTimeout(() => { scene.remove(flash); scene.remove(boom); }, 400);
+                    scene.remove(g.mesh);
+                    grenadeProjectiles.splice(i, 1);
+                }
             }
         }
 
@@ -636,13 +698,31 @@
             fwd.y = 0; fwd.normalize();
             const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
 
+            // Guardar posição antes de mover para colisão
+            const prevPos = camera.position.clone();
+
             camera.position.addScaledVector(fwd, -vel.z * dt);
             camera.position.addScaledVector(right, -vel.x * dt);
             camera.position.y += vel.y * dt;
 
             if (camera.position.y < 2) { vel.y = 0; camera.position.y = 2; player.canJump = true; }
-            camera.position.x = Math.max(-48, Math.min(48, camera.position.x));
-            camera.position.z = Math.max(-48, Math.min(48, camera.position.z));
+
+            // Colisão com obstáculos
+            const playerRadius = 0.5;
+            for (const ob of obstacles) {
+                const cx = Math.max(ob.min.x, Math.min(camera.position.x, ob.max.x));
+                const cz = Math.max(ob.min.z, Math.min(camera.position.z, ob.max.z));
+                const dx = camera.position.x - cx;
+                const dz = camera.position.z - cz;
+                if (dx * dx + dz * dz < playerRadius * playerRadius) {
+                    // Colidiu — reverter posição
+                    camera.position.x = prevPos.x;
+                    camera.position.z = prevPos.z;
+                    vel.x = 0;
+                    vel.z = 0;
+                    break;
+                }
+            }
 
             // HP bar cor
             const hpBar = document.getElementById('hp-bar');
@@ -677,7 +757,7 @@
             return {
                 mesh: group,
                 hp: 50 * difficulty,
-                speed: 5 + difficulty * 1.5,
+                speed: 7 + difficulty * 2,
                 damage: 10 * difficulty,
                 alive: true,
                 takeDamage(amt) {
@@ -752,7 +832,7 @@
         // --- FASES DO JOGO ---
         function startPreparation() {
             phase = 'PREPARATION';
-            timer = 120;
+            timer = 60;
             document.getElementById('phase-label').innerText = 'FASE DE PREPARAÇÃO';
             document.getElementById('phase-label').style.color = '#00f2ff';
             spawnLoots();
@@ -761,7 +841,7 @@
 
         function startHorde() {
             phase = 'HORDE';
-            timer = 180;
+            timer = 120;
             document.getElementById('phase-label').innerText = 'HORDA ' + currentWave;
             document.getElementById('phase-label').style.color = '#ff0055';
             showMsg('HORDA ' + currentWave + ' / ' + maxWaves, 'Sobreviva até o tempo acabar!');
@@ -829,6 +909,7 @@
 
             updateEnemies(dt);
             updateLoots(dt);
+            updateGrenades(dt);
             renderer.render(scene, camera);
         }
 
