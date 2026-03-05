@@ -24,13 +24,11 @@ class Game {
         this.timer = 180;
         this.gameStarted = false;
 
-        this._initRenderer();
-        this._initWorld();
-        this._initStartButton();
-        this._animate();
+        this.init();
     }
 
-    _initRenderer() {
+    init() {
+        // Renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.shadowMap.enabled = true;
@@ -41,27 +39,43 @@ class Game {
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
-    }
 
-    _initWorld() {
+        // Mundo + Jogador + Arma
         this.world = new World(this.scene);
         this.player = new Player(this.camera, this.renderer.domElement);
         this.weapon = new Weapon(this.camera, this.scene);
         this.scene.add(this.camera);
 
-        // Tiro com raycasting
-        window.addEventListener('mousedown', (e) => {
-            if (!this.player.controls.isLocked || e.button !== 0) return;
-            if (this.weapon.shoot(this.player)) {
-                const raycaster = new THREE.Raycaster();
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-                const meshes = this.enemies.filter(e => e.alive).map(e => e.mesh);
-                const hits = raycaster.intersectObjects(meshes, true);
-                if (hits.length > 0) {
-                    const hitMesh = hits[0].object;
-                    const enemy = this.enemies.find(en => en.mesh === hitMesh || en.mesh.getObjectById(hitMesh.id));
-                    if (enemy) enemy.takeDamage(20);
+        // === INÍCIO DO JOGO: clique na tela de início ===
+        const startScreen = document.getElementById('start-screen');
+        startScreen.addEventListener('click', () => {
+            // Requisição do Pointer Lock direto no gesto do usuário
+            document.body.requestPointerLock();
+        });
+
+        // Quando o navegador concede o Pointer Lock
+        document.addEventListener('pointerlockchange', () => {
+            if (document.pointerLockElement === document.body) {
+                // Lock concedido — esconde tela de início e inicia o jogo
+                startScreen.style.display = 'none';
+                this.player.controls.enabled = true;
+                if (!this.gameStarted) {
+                    this.gameStarted = true;
+                    this.startPreparationPhase();
                 }
+            } else {
+                // Lock perdido (ESC ou perda de foco)
+                if (this.player.hp > 0) {
+                    startScreen.style.display = 'flex';
+                }
+            }
+        });
+
+        // Tiro
+        window.addEventListener('mousedown', (e) => {
+            if (!document.pointerLockElement || e.button !== 0) return;
+            if (this.weapon.shoot(this.player)) {
+                this.checkShooting();
             }
         });
 
@@ -73,81 +87,46 @@ class Game {
             if (t === 'grenade') this.player.grenades = Math.min(3, this.player.grenades + 1);
         });
 
-        // Volta ao menu ao desbloquear mouse (exceto morte)
-        this.player.controls.addEventListener('unlock', () => {
-            if (this.player.hp > 0) {
-                document.getElementById('menu-overlay').classList.remove('hidden');
-            }
-        });
+        // Iniciar loop de animação
+        this.animate();
     }
 
-    _initStartButton() {
-        const btn = document.getElementById('start-btn');
-        const menu = document.getElementById('menu-overlay');
-        const cd = document.getElementById('countdown-display');
-
-        btn.addEventListener('click', () => {
-            // Pointer Lock DEVE ser chamado direto no click
-            this.player.controls.lock();
-
-            // Após o lock ser concedido, iniciamos a contagem
-            this.player.controls.once
-                ? this.player.controls.once('lock', () => this._startCountdown(btn, menu, cd))
-                : this._onLockOnce(() => this._startCountdown(btn, menu, cd));
-        });
-    }
-
-    _onLockOnce(callback) {
-        const handler = () => {
-            callback();
-            this.player.controls.removeEventListener('lock', handler);
-        };
-        this.player.controls.addEventListener('lock', handler);
-    }
-
-    _startCountdown(btn, menu, cd) {
-        let count = 3;
-        btn.disabled = true;
-        cd.innerText = count;
-
-        const interval = setInterval(() => {
-            count--;
-            if (count > 0) {
-                cd.innerText = count;
-            } else {
-                clearInterval(interval);
-                cd.innerText = '';
-                menu.classList.add('hidden');
-                this._beginGame();
-            }
-        }, 1000);
-    }
-
-    _beginGame() {
-        if (!this.gameStarted) {
-            this.gameStarted = true;
-            this._startPreparation();
+    checkShooting() {
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+        const meshes = this.enemies.filter(e => e.alive).map(e => e.mesh);
+        const hits = raycaster.intersectObjects(meshes, true);
+        if (hits.length > 0) {
+            const enemy = this.enemies.find(en => {
+                let obj = hits[0].object;
+                while (obj) {
+                    if (obj === en.mesh) return true;
+                    obj = obj.parent;
+                }
+                return false;
+            });
+            if (enemy) enemy.takeDamage(20);
         }
     }
 
-    _startPreparation() {
+    startPreparationPhase() {
         this.phase = 'PREPARATION';
         this.timer = 180;
         document.getElementById('phase-label').innerText = 'FASE DE PREPARAÇÃO';
         document.getElementById('phase-label').style.color = '#00f2ff';
-        this._spawnLoots();
-        this._showMessage('PREPARAÇÃO', 'Recolha suprimentos. Nenhum inimigo por enquanto.');
+        this.spawnLoots();
+        this.showMessage('PREPARAÇÃO', 'Recolha suprimentos. Sem inimigos.');
     }
 
-    _startHorde() {
+    startHordePhase() {
         this.phase = 'HORDE';
         this.timer = 360;
-        document.getElementById('phase-label').innerText = 'FASE DE HORDA ' + this.currentWave;
+        document.getElementById('phase-label').innerText = 'HORDA ' + this.currentWave;
         document.getElementById('phase-label').style.color = '#ff0055';
-        this._showMessage('HORDA ' + this.currentWave + ' / ' + this.maxWaves, 'Sobreviva até o tempo acabar!');
+        this.showMessage('HORDA ' + this.currentWave + ' / ' + this.maxWaves, 'Sobreviva até o tempo acabar!');
     }
 
-    _spawnLoots() {
+    spawnLoots() {
         this.loots.forEach(l => this.scene.remove(l.mesh));
         this.loots = [];
         const types = ['ammo', 'ammo', 'medkit', 'medkit', 'grenade'];
@@ -158,7 +137,7 @@ class Game {
         }
     }
 
-    _showMessage(title, desc) {
+    showMessage(title, desc) {
         const overlay = document.getElementById('message-overlay');
         document.getElementById('msg-title').innerText = title;
         document.getElementById('msg-desc').innerText = desc;
@@ -166,62 +145,58 @@ class Game {
         setTimeout(() => overlay.classList.add('hidden'), 4000);
     }
 
-    _updateTimer(delta) {
+    updateTimer(delta) {
         if (!this.gameStarted || this.phase === 'WAITING') return;
         this.timer -= delta;
-
         if (this.timer <= 0) {
             if (this.phase === 'PREPARATION') {
-                this._startHorde();
+                this.startHordePhase();
             } else {
                 this.currentWave++;
                 if (this.currentWave > this.maxWaves) {
-                    this._win();
+                    this.win();
                 } else {
-                    this._startPreparation();
+                    this.startPreparationPhase();
                 }
             }
         }
-
-        const mins = Math.floor(this.timer / 60);
-        const secs = Math.floor(this.timer % 60);
-        document.getElementById('timer').innerText =
-            `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        document.getElementById('wave-counter').innerText =
-            `HORDA: ${this.currentWave} / ${this.maxWaves}`;
+        const mins = Math.floor(Math.max(0, this.timer) / 60);
+        const secs = Math.floor(Math.max(0, this.timer) % 60);
+        document.getElementById('timer').innerText = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+        document.getElementById('wave-counter').innerText = 'HORDA: ' + this.currentWave + ' / ' + this.maxWaves;
     }
 
-    _win() {
-        this.player.controls.unlock();
-        this._showMessage('VITÓRIA!', 'Você sobreviveu ao Protocolo Sucata. Arena limpa.');
+    win() {
+        document.exitPointerLock();
+        this.showMessage('VITÓRIA!', 'Você sobreviveu ao Protocolo Sucata!');
     }
 
-    _animate() {
-        requestAnimationFrame(() => this._animate());
+    animate() {
+        requestAnimationFrame(() => this.animate());
         const delta = this.clock.getDelta();
 
-        this.player.update(delta);
-        this._updateTimer(delta);
+        // Atualiza jogador apenas se pointer lock ativo
+        if (document.pointerLockElement) {
+            this.player.update(delta);
+        }
 
-        const playerPos = this.player.controls.getObject().position;
+        this.updateTimer(delta);
 
-        // Spawn de inimigos durante horda
-        if (this.phase === 'HORDE' && this.gameStarted) {
+        const playerPos = this.camera.position;
+
+        // Spawn de inimigos na horda
+        if (this.phase === 'HORDE') {
             const alive = this.enemies.filter(e => e.alive).length;
-            const maxAlive = 5 + this.currentWave;
-            if (alive < maxAlive) {
-                const spawnPos = new THREE.Vector3(
-                    (Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90
-                );
-                if (spawnPos.distanceTo(playerPos) > 20) {
-                    this.enemies.push(new Enemy(this.scene, this.player, spawnPos, this.currentWave));
+            if (alive < 5 + this.currentWave) {
+                const sp = new THREE.Vector3((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
+                if (sp.distanceTo(playerPos) > 20) {
+                    this.enemies.push(new Enemy(this.scene, this.player, sp, this.currentWave));
                 }
             }
         }
 
         this.enemies.forEach(e => e.update(delta));
         this.loots.forEach(l => l.update(delta, playerPos));
-
         this.renderer.render(this.scene, this.camera);
     }
 }

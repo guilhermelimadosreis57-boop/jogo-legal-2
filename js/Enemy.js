@@ -20,20 +20,17 @@ export class Enemy {
     createMesh() {
         const group = new THREE.Group();
 
-        // Corpo do Robô
         const bodyGeo = new THREE.BoxGeometry(1, 1.5, 0.8);
         const bodyMat = new THREE.MeshStandardMaterial({ color: 0x550000 });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         group.add(body);
 
-        // "Olho" Neon
         const eyeGeo = new THREE.BoxGeometry(0.8, 0.2, 0.1);
         const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         const eye = new THREE.Mesh(eyeGeo, eyeMat);
         eye.position.set(0, 0.4, 0.4);
         group.add(eye);
 
-        // Pernas (simplificadas)
         const legGeo = new THREE.BoxGeometry(0.3, 0.8, 0.3);
         const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
         const leg1 = new THREE.Mesh(legGeo, legMat);
@@ -49,10 +46,10 @@ export class Enemy {
     update(delta) {
         if (!this.alive) return;
 
-        // Movimentação em direção ao jogador
-        const playerPos = this.player.controls.getObject().position;
+        // Usar a posição da câmera diretamente
+        const playerPos = this.player.camera.position;
         const direction = new THREE.Vector3().subVectors(playerPos, this.mesh.position);
-        direction.y = 0; // Não voa
+        direction.y = 0;
 
         const distance = direction.length();
         direction.normalize();
@@ -61,7 +58,6 @@ export class Enemy {
             this.mesh.position.add(direction.multiplyScalar(this.speed * delta));
             this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
         } else {
-            // Ataque
             this.player.takeDamage(this.damage * delta);
         }
     }
@@ -69,10 +65,9 @@ export class Enemy {
     takeDamage(amount) {
         this.hp -= amount;
 
-        // Flash de dano
         this.mesh.children[0].material.emissive.setHex(0xff0000);
         setTimeout(() => {
-            if (this.mesh) this.mesh.children[0].material.emissive.setHex(0x000000);
+            if (this.mesh && this.mesh.children[0]) this.mesh.children[0].material.emissive.setHex(0x000000);
         }, 100);
 
         if (this.hp <= 0 && this.alive) {

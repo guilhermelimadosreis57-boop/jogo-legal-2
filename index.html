@@ -11,55 +11,44 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap"
         rel="stylesheet">
-    <meta name="description"
-        content="Sobreviva a hordas de robôs em uma arena industrial 3D. Protocolo Sucata - FPS Survival.">
 </head>
 
 <body>
-    <!-- Menu Inicial (FORA do ui-container para evitar pointer-events:none) -->
-    <div id="menu-overlay">
-        <div class="menu-content">
-            <h1 class="glitch-text">PROTOCOLO SUCATA</h1>
-
-            <div class="game-rules">
-                <h3>OBJETIVO: SOBREVIVER A 7 HORDAS</h3>
-                <ul>
-                    <li><span class="highlight">FASE PREPARAÇÃO (3 MIN):</span> O mapa está seguro. Explore e colete o
-                        máximo de suprimentos.</li>
-                    <li><span class="highlight">FASE HORDA (6 MIN):</span> Robôs atacarão de todas as direções.
-                        Sobreviva até o tempo acabar.</li>
-                    <li><span class="highlight">RECURSOS (ITENS BRILHANTES):</span><br>
-                        🟡 Amarelo = Munição &nbsp;|&nbsp; 🟢 Verde = +25 HP &nbsp;|&nbsp; 🔴 Vermelho = Granada</li>
-                    <li><span class="highlight">ATENÇÃO:</span> Se o HP chegar a 0, é GAME OVER. A dificuldade aumenta a
-                        cada horda.</li>
-                </ul>
-            </div>
-
-            <div class="controls-guide">
-                <div class="control-item"><span>W,A,S,D</span> Mover</div>
-                <div class="control-item"><span>Shift</span> Correr</div>
-                <div class="control-item"><span>Clique Esq.</span> Atirar</div>
-                <div class="control-item"><span>Clique Dir.</span> Mirar</div>
-                <div class="control-item"><span>G</span> Granada</div>
-                <div class="control-item"><span>R</span> Recarregar</div>
-            </div>
-
-            <div id="countdown-display"></div>
-            <button id="start-btn">▶ INICIAR OPERAÇÃO</button>
+    <!-- Tela de início: clique em qualquer lugar para jogar -->
+    <div id="start-screen"
+        style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:rgba(0,0,0,0.92);display:flex;justify-content:center;align-items:center;cursor:pointer;flex-direction:column;">
+        <h1
+            style="font-family:'Orbitron',sans-serif;font-size:3.5rem;color:#00f2ff;margin-bottom:20px;text-align:center;">
+            PROTOCOLO SUCATA</h1>
+        <div
+            style="max-width:550px;width:90%;text-align:left;background:rgba(0,242,255,0.04);padding:18px;border-left:3px solid #00f2ff;margin-bottom:25px;color:#ccc;font-size:0.9rem;line-height:1.8;">
+            <div style="color:#00f2ff;font-weight:bold;margin-bottom:10px;font-size:0.85rem;">OBJETIVO: SOBREVIVER A 7
+                HORDAS</div>
+            <div>🕐 <span style="color:#00f2ff;font-weight:bold;">PREPARAÇÃO (3 MIN):</span> Colete suprimentos. Sem
+                inimigos.</div>
+            <div>⚔️ <span style="color:#00f2ff;font-weight:bold;">HORDA (6 MIN):</span> Robôs atacam. Sobreviva!</div>
+            <div>🟡 Amarelo = Munição | 🟢 Verde = +25 HP | 🔴 Vermelho = Granada</div>
         </div>
+        <div
+            style="max-width:550px;width:90%;display:grid;grid-template-columns:1fr 1fr;gap:8px;color:#aaa;font-size:0.85rem;margin-bottom:30px;">
+            <div><span style="color:#00f2ff;font-weight:bold;">W,A,S,D</span> Mover</div>
+            <div><span style="color:#00f2ff;font-weight:bold;">Shift</span> Correr</div>
+            <div><span style="color:#00f2ff;font-weight:bold;">Clique Esq.</span> Atirar</div>
+            <div><span style="color:#00f2ff;font-weight:bold;">Clique Dir.</span> Mirar</div>
+            <div><span style="color:#00f2ff;font-weight:bold;">G</span> Granada</div>
+            <div><span style="color:#00f2ff;font-weight:bold;">R</span> Recarregar</div>
+        </div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:1.4rem;color:#ffd700;animation:pulse 1.5s infinite;">▶
+            CLIQUE EM QUALQUER LUGAR PARA JOGAR</div>
     </div>
 
+    <!-- HUD -->
     <div id="ui-container">
-        <!-- Timer Superior -->
         <div id="timer-container">
             <div id="phase-label">FASE DE PREPARAÇÃO</div>
             <div id="timer">03:00</div>
         </div>
-
-        <!-- Mira Central -->
         <div id="crosshair"></div>
-
-        <!-- Info Inferior Esquerda: HP e Granadas -->
         <div id="status-left">
             <div class="stat-box">
                 <span class="label">INTEGRIDADE</span>
@@ -74,8 +63,6 @@
             </div>
             <div id="wave-counter">HORDA: 1 / 7</div>
         </div>
-
-        <!-- Info Inferior Direita: Munição -->
         <div id="status-right">
             <div class="ammo-box">
                 <div id="ammo-count">30</div>
@@ -83,26 +70,23 @@
             </div>
             <div id="weapon-name">RIFLE DE PULSO M1</div>
         </div>
-
-        <!-- Overlay de Mensagens (eventos do jogo) -->
         <div id="message-overlay" class="hidden">
             <div id="message-content">
-                <h1 id="msg-title">HORDA INICIADA!</h1>
-                <p id="msg-desc">Sobreviva.</p>
+                <h1 id="msg-title"></h1>
+                <p id="msg-desc"></p>
             </div>
         </div>
     </div>
 
     <div id="canvas-container"></div>
 
-    <!-- Scripts -->
     <script type="importmap">
-        {
-          "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-          }
-        }
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
     </script>
     <script type="module" src="js/main.js"></script>
 </body>

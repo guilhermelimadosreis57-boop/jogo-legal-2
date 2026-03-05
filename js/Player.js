@@ -1,11 +1,10 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 export class Player {
     constructor(camera, domElement) {
         this.camera = camera;
-        this.controls = new PointerLockControls(camera, domElement);
 
+        // Atributos
         this.hp = 100;
         this.maxHp = 100;
         this.ammo = 30;
@@ -13,6 +12,7 @@ export class Player {
         this.totalAmmo = 90;
         this.grenades = 3;
 
+        // Movimento
         this.moveForward = false;
         this.moveBackward = false;
         this.moveLeft = false;
@@ -23,23 +23,35 @@ export class Player {
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
 
+        // Sensibilidade do mouse
+        this.euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        this.sensitivity = 0.002;
+
         this._initKeyboard();
+        this._initMouse();
+
+        // Pointer Lock controls — usando PointerLockControls é redundante,
+        // então controlamos o mouse manualmente pelo pointerlockchange
+        this.controls = {
+            enabled: false,
+            isLocked: false
+        };
+
+        // Observar mudanças de pointer lock
+        document.addEventListener('pointerlockchange', () => {
+            this.controls.isLocked = !!document.pointerLockElement;
+        });
     }
 
     _initKeyboard() {
         document.addEventListener('keydown', (e) => {
             switch (e.code) {
-                case 'ArrowUp':
-                case 'KeyW': this.moveForward = true; break;
-                case 'ArrowLeft':
-                case 'KeyA': this.moveLeft = true; break;
-                case 'ArrowDown':
-                case 'KeyS': this.moveBackward = true; break;
-                case 'ArrowRight':
-                case 'KeyD': this.moveRight = true; break;
+                case 'KeyW': case 'ArrowUp': this.moveForward = true; break;
+                case 'KeyA': case 'ArrowLeft': this.moveLeft = true; break;
+                case 'KeyS': case 'ArrowDown': this.moveBackward = true; break;
+                case 'KeyD': case 'ArrowRight': this.moveRight = true; break;
                 case 'Space':
-                    if (this.canJump) this.velocity.y += 15;
-                    this.canJump = false;
+                    if (this.canJump) { this.velocity.y += 15; this.canJump = false; }
                     break;
                 case 'ShiftLeft': this.isRunning = true; break;
                 case 'KeyR': this.reload(); break;
@@ -49,22 +61,31 @@ export class Player {
 
         document.addEventListener('keyup', (e) => {
             switch (e.code) {
-                case 'ArrowUp':
-                case 'KeyW': this.moveForward = false; break;
-                case 'ArrowLeft':
-                case 'KeyA': this.moveLeft = false; break;
-                case 'ArrowDown':
-                case 'KeyS': this.moveBackward = false; break;
-                case 'ArrowRight':
-                case 'KeyD': this.moveRight = false; break;
+                case 'KeyW': case 'ArrowUp': this.moveForward = false; break;
+                case 'KeyA': case 'ArrowLeft': this.moveLeft = false; break;
+                case 'KeyS': case 'ArrowDown': this.moveBackward = false; break;
+                case 'KeyD': case 'ArrowRight': this.moveRight = false; break;
                 case 'ShiftLeft': this.isRunning = false; break;
             }
         });
     }
 
-    update(delta) {
-        if (!this.controls.isLocked) return;
+    _initMouse() {
+        document.addEventListener('mousemove', (e) => {
+            if (!document.pointerLockElement) return;
 
+            this.euler.setFromQuaternion(this.camera.quaternion);
+            this.euler.y -= e.movementX * this.sensitivity;
+            this.euler.x -= e.movementY * this.sensitivity;
+            this.euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, this.euler.x));
+            this.camera.quaternion.setFromEuler(this.euler);
+        });
+    }
+
+    update(delta) {
+        if (!document.pointerLockElement) return;
+
+        // Gravidade e atrito
         this.velocity.x -= this.velocity.x * 10.0 * delta;
         this.velocity.z -= this.velocity.z * 10.0 * delta;
         this.velocity.y -= 9.8 * 4.0 * delta;
@@ -78,16 +99,29 @@ export class Player {
         if (this.moveForward || this.moveBackward) this.velocity.z -= this.direction.z * speed * delta;
         if (this.moveLeft || this.moveRight) this.velocity.x -= this.direction.x * speed * delta;
 
-        this.controls.moveRight(-this.velocity.x * delta);
-        this.controls.moveForward(-this.velocity.z * delta);
+        // Mover na direção que a câmera aponta
+        const forward = new THREE.Vector3();
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        forward.normalize();
 
-        this.controls.getObject().position.y += this.velocity.y * delta;
+        const right = new THREE.Vector3();
+        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-        if (this.controls.getObject().position.y < 2) {
+        this.camera.position.addScaledVector(forward, -this.velocity.z * delta);
+        this.camera.position.addScaledVector(right, -this.velocity.x * delta);
+        this.camera.position.y += this.velocity.y * delta;
+
+        // Chão
+        if (this.camera.position.y < 2) {
             this.velocity.y = 0;
-            this.controls.getObject().position.y = 2;
+            this.camera.position.y = 2;
             this.canJump = true;
         }
+
+        // Limites do mapa
+        this.camera.position.x = Math.max(-48, Math.min(48, this.camera.position.x));
+        this.camera.position.z = Math.max(-48, Math.min(48, this.camera.position.z));
 
         this.updateUI();
     }
@@ -119,11 +153,10 @@ export class Player {
     }
 
     die() {
-        this.controls.unlock();
+        document.exitPointerLock();
         document.getElementById('msg-title').innerText = 'VOCÊ FOI DESMANTELADO';
         document.getElementById('msg-desc').innerText = 'O Protocolo Sucata falhou.';
-        const msg = document.getElementById('message-overlay');
-        msg.classList.remove('hidden');
+        document.getElementById('message-overlay').classList.remove('hidden');
         setTimeout(() => location.reload(), 3000);
     }
 }
