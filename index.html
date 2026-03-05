@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocolo Sucata | FPS Survival</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap"
+        rel="stylesheet">
+    <meta name="description"
+        content="Sobreviva a hordas de robôs em uma arena industrial 3D. Protocolo Sucata - FPS Survival.">
+</head>
+
+<body>
+    <div id="ui-container">
+        <!-- Timer Superior -->
+        <div id="timer-container">
+            <div id="phase-label">FASE DE PREPARAÇÃO</div>
+            <div id="timer">03:00</div>
+        </div>
+
+        <!-- Mira Central -->
+        <div id="crosshair"></div>
+
+        <!-- Info Inferior Esquerda: HP e Granadas -->
+        <div id="status-left">
+            <div class="stat-box">
+                <span class="label">INTEGRIDADE</span>
+                <div class="hp-bar-container">
+                    <div id="hp-bar"></div>
+                </div>
+                <div id="hp-text">100 HP</div>
+            </div>
+            <div class="stat-box">
+                <span class="label">GRANADAS</span>
+                <div id="grenade-count">3 / 3</div>
+            </div>
+            <div id="wave-counter">HORDA: 1 / 7</div>
+        </div>
+
+        <!-- Info Inferior Direita: Munição -->
+        <div id="status-right">
+            <div class="ammo-box">
+                <div id="ammo-count">30</div>
+                <div id="total-ammo">/ 90</div>
+            </div>
+            <div id="weapon-name">RIFLE DE PULSO M1</div>
+        </div>
+
+        <!-- Overlay de Mensagens -->
+        <div id="message-overlay" class="hidden">
+            <div id="message-content">
+                <h1 id="msg-title">HORDA INICIADA!</h1>
+                <p id="msg-desc">Elimine todos os robôs.</p>
+            </div>
+        </div>
+
+        <!-- Menu Inicial / Morte -->
+        <div id="menu-overlay">
+            <div class="menu-content">
+                <h1 class="glitch-text" data-text="PROTOCOLO SUCATA">PROTOCOLO SUCATA</h1>
+                <p>O apocalipse mecânico começou. Sobreviva a 7 ondas de máquinas corrompidas.</p>
+                <div class="controls-guide">
+                    <div>W,A,S,D - Mover</div>
+                    <div>Shift - Correr</div>
+                    <div>Clique Esq. - Atirar</div>
+                    <div>Clique Dir. - Mirar</div>
+                    <div>G - Granada | R - Recarregar</div>
+                </div>
+                <button id="start-btn">INICIAR OPERAÇÃO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <!-- Scripts -->
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+          }
+        }
+    </script>
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
