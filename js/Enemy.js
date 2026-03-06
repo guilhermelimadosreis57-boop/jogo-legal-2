@@ -208,8 +208,19 @@ export class Enemy {
             } else {
                 this.mesh.sniperLine.material.opacity = 0;
             }
+            // Exclamação (Qdo falta 4 seg = timer >= 2.0)
+            const warnIcon = document.getElementById('sniper-warning');
+            if (this.mesh.sniperTimer >= 2.0 && this.mesh.sniperTimer <= 6.0) {
+                if (warnIcon) {
+                    warnIcon.classList.remove('hidden');
+                    warnIcon.style.opacity = 0.5 + Math.sin(this.mesh.sniperTimer * 15) * 0.5;
+                }
+            } else if (warnIcon && !warnIcon.classList.contains('hidden')) {
+                warnIcon.classList.add('hidden');
+            }
             
             if (this.mesh.sniperTimer >= 6.0) {
+                if (warnIcon) warnIcon.classList.add('hidden');
                 this.mesh.sniperTimer = -5.0; // Recarga de 5 segundos (+0 vai atirar só a cada 11 sec)
                 this.mesh.sniperLine.material.opacity = 0;
                 

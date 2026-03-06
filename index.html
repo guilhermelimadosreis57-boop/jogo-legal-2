@@ -374,6 +374,7 @@
             <div id="timer">--:--</div>
         </div>
         <div id="crosshair"></div>
+        <div id="sniper-warning" class="hidden" style="position:fixed; top:35%; left:50%; transform:translate(-50%,-50%); color:#ff0000; font-size:120px; font-weight:bold; text-shadow:0 0 30px #ff0000; z-index:10; pointer-events:none;">!</div>
         <div id="status-left">
             <div class="stat-box">
                 <span class="label">INTEGRIDADE</span>
@@ -522,9 +523,17 @@
 
             // Ventilador
             const fanGroup = new THREE.Group();
-            fanGroup.position.set(48, 5, -48);
+            fanGroup.position.set(48, 1.5, -48);
             
-            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1), new THREE.MeshStandardMaterial({color: 0xffffff}));
+            // Pedestal (baixo)
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1), new THREE.MeshStandardMaterial({color: 0xffffff}));
+            base.position.y = -1.4;
+            fanGroup.add(base);
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
+            pole.position.y = -0.7;
+            fanGroup.add(pole);
+
+            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
             mount.rotation.x = Math.PI / 2;
             mount.position.z = 0.5;
             fanGroup.add(mount);
@@ -535,14 +544,17 @@
             const frame = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 32), new THREE.MeshStandardMaterial({color: 0xffffff}));
             fanHead.add(frame);
             
+            const fanRotor = new THREE.Group();
+            fanHead.add(fanRotor);
+            
             const bladeGeo = new THREE.BoxGeometry(0.05, 2.8, 0.3);
             const blades1 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
             const blades2 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
             blades2.rotation.x = Math.PI / 2;
-            fanHead.add(blades1);
-            fanHead.add(blades2);
+            fanRotor.add(blades1);
+            fanRotor.add(blades2);
             
-            window.ventilator = { head: fanHead, b1: blades1, b2: blades2, time: 0 };
+            window.ventilator = { head: fanHead, rotor: fanRotor, time: 0 };
             scene.add(fanGroup);
         }
 
@@ -1085,7 +1097,17 @@
                         en.mesh.sniperLine.material.opacity = 0;
                     }
                     
+                    // Exclamação (Qdo falta 4 seg = timer >= 2.0)
+                    const warnIcon = document.getElementById('sniper-warning');
+                    if (en.mesh.sniperTimer >= 2.0 && en.mesh.sniperTimer <= 6.0) {
+                        warnIcon.classList.remove('hidden');
+                        warnIcon.style.opacity = 0.5 + Math.sin(en.mesh.sniperTimer * 15) * 0.5;
+                    } else if (warnIcon && !warnIcon.classList.contains('hidden')) {
+                        warnIcon.classList.add('hidden');
+                    }
+                    
                     if (en.mesh.sniperTimer >= 6.0) {
+                        if (warnIcon) warnIcon.classList.add('hidden');
                         en.mesh.sniperTimer = -5.0; // Recarga de 5 segundos (+0 vai atirar só a cada 11 sec)
                         en.mesh.sniperLine.material.opacity = 0;
                         
@@ -1320,8 +1342,7 @@
             if (dt > 0.1) dt = 0.1; // Limitador de delta para evitar dobras e falhas da física
             
             if (window.ventilator) {
-                window.ventilator.b1.rotation.z -= dt * 10;
-                window.ventilator.b2.rotation.z -= dt * 10;
+                window.ventilator.rotor.rotation.z -= dt * 15; // Girar todas as hélices juntas com o rotor
                 window.ventilator.time += dt;
                 window.ventilator.head.rotation.y = Math.sin(window.ventilator.time * 1.5) * (Math.PI / 4) - (Math.PI / 4);
             }
