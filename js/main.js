@@ -113,7 +113,7 @@ class Game {
 
     startPreparationPhase() {
         this.phase = 'PREPARATION';
-        this.timer = 180;
+        this.timer = 30;
         document.getElementById('phase-label').innerText = 'FASE DE PREPARAÇÃO';
         document.getElementById('phase-label').style.color = '#00f2ff';
         this.spawnLoots();

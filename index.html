@@ -422,7 +422,7 @@
         let scene, camera, renderer, clock;
         let enemies = [], loots = [];
         let currentWave = 1, maxWaves = 7;
-        let phase = 'WAITING', timer = 60, gameStarted = false;
+        let phase = 'WAITING', timer = 30, gameStarted = false;
         let bossSpawned = false;
         let isReloading = false;
         let isDevMode = false;
@@ -519,6 +519,31 @@
             dir.position.set(10, 20, 10);
             dir.castShadow = true;
             scene.add(dir);
+
+            // Ventilador
+            const fanGroup = new THREE.Group();
+            fanGroup.position.set(48, 5, -48);
+            
+            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2), new THREE.MeshStandardMaterial({color: 0x222222}));
+            mount.rotation.x = Math.PI / 2;
+            mount.position.z = 1;
+            fanGroup.add(mount);
+            
+            const fanHead = new THREE.Group();
+            fanGroup.add(fanHead);
+            
+            const frame = new THREE.Mesh(new THREE.TorusGeometry(3, 0.2, 8, 32), new THREE.MeshStandardMaterial({color: 0x111111}));
+            fanHead.add(frame);
+            
+            const bladeGeo = new THREE.BoxGeometry(0.1, 5.5, 0.5);
+            const blades1 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0x444444}));
+            const blades2 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0x444444}));
+            blades2.rotation.x = Math.PI / 2;
+            fanHead.add(blades1);
+            fanHead.add(blades2);
+            
+            window.ventilator = { head: fanHead, b1: blades1, b2: blades2, time: 0 };
+            scene.add(fanGroup);
         }
 
         function addWall(x, y, z, w, h, d) {
@@ -842,12 +867,28 @@
                 hp = 10000;
                 speed = 3;
                 damage = 30;
-                bodyMat = new THREE.MeshStandardMaterial({ color: 0x990099, emissive: 0x330033 });
-                const core = new THREE.Mesh(new THREE.OctahedronGeometry(2), bodyMat);
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0x330011, metalness: 0.5 });
+                const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), bodyMat);
                 group.add(core);
-                const ring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.2, 8, 24), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+                const ringMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.9, roughness: 0.1 });
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.4, 16, 64), ringMat);
                 ring.rotation.x = Math.PI / 2;
                 group.add(ring);
+                const ring2 = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.2, 16, 64), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+                ring2.rotation.x = Math.PI / 2;
+                group.add(ring2);
+                
+                // Spikes
+                const spikeGeo = new THREE.ConeGeometry(0.4, 1.5, 4);
+                const spikeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+                for(let i=0; i<8; i++) {
+                    const spike = new THREE.Mesh(spikeGeo, spikeMat);
+                    const a = (Math.PI / 4) * i;
+                    spike.position.set(Math.cos(a)*3.5, 0, Math.sin(a)*3.5);
+                    spike.rotation.x = Math.PI / 2;
+                    spike.rotation.z = -a;
+                    ring.add(spike);
+                }
                 group.lasers = [];
                 const laserGeo = new THREE.CylinderGeometry(0.3, 0.3, 20);
                 laserGeo.translate(0, 10, 0); 
@@ -887,7 +928,17 @@
                 const beak = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: 0xff6600 }));
                 beak.position.set(0, 0.2, 0.9);
                 group.add(beak);
-                group.position.y = 0.75;
+                
+                // Patas
+                const footGeo = new THREE.BoxGeometry(0.5, 0.2, 0.8);
+                const footMat = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+                const ftL = new THREE.Mesh(footGeo, footMat);
+                ftL.position.set(-0.4, -0.85, 0.2);
+                const ftR = new THREE.Mesh(footGeo, footMat);
+                ftR.position.set(0.4, -0.85, 0.2);
+                group.add(ftL); group.add(ftR);
+
+                group.position.y = 1.0;
             } else if (type === 'dog') {
                 hp = 15 * difficulty;
                 speed = 22; // Bem rápido
@@ -912,18 +963,24 @@
                 hp = 50 + difficulty;
                 speed = 7;
                 damage = 10 * difficulty;
-                bodyMat = new THREE.MeshStandardMaterial({ color: 0x550000 });
-                const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.8), bodyMat);
-                group.add(body);
-                const eye = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-                eye.position.set(0, 0.4, 0.4);
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2, emissive: 0x110000 });
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), bodyMat);
+                torso.position.y = 0.2;
+                group.add(torso);
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), bodyMat);
+                head.position.y = 1.2;
+                group.add(head);
+                const eye = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+                eye.position.set(0, 1.2, 0.31);
                 group.add(eye);
+                const armGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
+                const armL = new THREE.Mesh(armGeo, bodyMat); armL.position.set(-0.65, 0.3, 0); group.add(armL);
+                const armR = new THREE.Mesh(armGeo, bodyMat); armR.position.set(0.65, 0.3, 0); group.add(armR);
+                const legGeo = new THREE.BoxGeometry(0.35, 0.8, 0.35);
                 const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-                const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
-                l1.position.set(-0.3, -1, 0); group.add(l1);
-                const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
-                l2.position.set(0.3, -1, 0); group.add(l2);
-                group.position.y = 1.5;
+                const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-0.25, -0.8, 0); group.add(legL);
+                const legR = new THREE.Mesh(legGeo, legMat); legR.position.set(0.25, -0.8, 0); group.add(legR);
+                group.position.y = 1.2;
             }
 
             group.position.x = pos.x;
@@ -1192,7 +1249,7 @@
         // --- FASES DO JOGO ---
         function startPreparation() {
             phase = 'PREPARATION';
-            timer = 60;
+            timer = 30;
             document.getElementById('phase-label').innerText = 'FASE DE PREPARAÇÃO';
             document.getElementById('phase-label').style.color = '#00f2ff';
             spawnLoots();
@@ -1259,6 +1316,13 @@
             requestAnimationFrame(animate);
             let dt = clock.getDelta();
             if (dt > 0.1) dt = 0.1; // Limitador de delta para evitar dobras e falhas da física
+            
+            if (window.ventilator) {
+                window.ventilator.b1.rotation.z -= dt * 10;
+                window.ventilator.b2.rotation.z -= dt * 10;
+                window.ventilator.time += dt;
+                window.ventilator.head.rotation.y = Math.sin(window.ventilator.time * 1.5) * (Math.PI / 4) - (Math.PI / 4);
+            }
 
             updatePlayer(dt);
             updateTimer(dt);

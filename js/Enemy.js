@@ -46,15 +46,31 @@ export class Enemy {
         const group = new THREE.Group();
 
         if (this.type === 'boss') {
-            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x990099, emissive: 0x330033 });
-            const core = new THREE.Mesh(new THREE.OctahedronGeometry(2), this.bodyMat);
+            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0x330011, metalness: 0.5 });
+            const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), this.bodyMat);
             group.add(core);
 
-            // Rotatory lasers
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.2, 8, 24), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.9, roughness: 0.1 });
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.4, 16, 64), ringMat);
             ring.rotation.x = Math.PI / 2;
             group.add(ring);
             
+            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.2, 16, 64), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+            ring2.rotation.x = Math.PI / 2;
+            group.add(ring2);
+            
+            // Spikes
+            const spikeGeo = new THREE.ConeGeometry(0.4, 1.5, 4);
+            const spikeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+            for(let i=0; i<8; i++) {
+                const spike = new THREE.Mesh(spikeGeo, spikeMat);
+                const a = (Math.PI / 4) * i;
+                spike.position.set(Math.cos(a)*3.5, 0, Math.sin(a)*3.5);
+                spike.rotation.x = Math.PI / 2;
+                spike.rotation.z = -a;
+                ring.add(spike);
+            }
+
             group.lasers = [];
             const laserGeo = new THREE.CylinderGeometry(0.3, 0.3, 20);
             laserGeo.translate(0, 10, 0); 
@@ -85,6 +101,15 @@ export class Enemy {
             const beak = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: 0xff6600 }));
             beak.position.set(0, 0.2, 0.9);
             group.add(beak);
+            
+            // Patas
+            const footGeo = new THREE.BoxGeometry(0.5, 0.2, 0.8);
+            const footMat = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+            const ftL = new THREE.Mesh(footGeo, footMat);
+            ftL.position.set(-0.4, -0.85, 0.2);
+            const ftR = new THREE.Mesh(footGeo, footMat);
+            ftR.position.set(0.4, -0.85, 0.2);
+            group.add(ftL); group.add(ftR);
         } else if (this.type === 'dog') {
             this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x332200 });
             const dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 1.2), this.bodyMat);
@@ -102,24 +127,27 @@ export class Enemy {
                 group.add(l);
             });
         } else {
-            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x550000 });
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.8), this.bodyMat);
-            group.add(body);
-
-            const eyeGeo = new THREE.BoxGeometry(0.8, 0.2, 0.1);
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-            const eye = new THREE.Mesh(eyeGeo, eyeMat);
-            eye.position.set(0, 0.4, 0.4);
+            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2, emissive: 0x110000 });
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), this.bodyMat);
+            torso.position.y = 0.2;
+            group.add(torso);
+            
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), this.bodyMat);
+            head.position.y = 1.2;
+            group.add(head);
+            
+            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 0.1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+            eye.position.set(0, 1.2, 0.31);
             group.add(eye);
-
-            const legGeo = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+            
+            const armGeo = new THREE.BoxGeometry(0.3, 1, 0.3);
+            const armL = new THREE.Mesh(armGeo, this.bodyMat); armL.position.set(-0.65, 0.3, 0); group.add(armL);
+            const armR = new THREE.Mesh(armGeo, this.bodyMat); armR.position.set(0.65, 0.3, 0); group.add(armR);
+            
+            const legGeo = new THREE.BoxGeometry(0.35, 0.8, 0.35);
             const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const leg1 = new THREE.Mesh(legGeo, legMat);
-            leg1.position.set(-0.3, -1, 0);
-            group.add(leg1);
-            const leg2 = new THREE.Mesh(legGeo, legMat);
-            leg2.position.set(0.3, -1, 0);
-            group.add(leg2);
+            const legL = new THREE.Mesh(legGeo, legMat); legL.position.set(-0.25, -0.8, 0); group.add(legL);
+            const legR = new THREE.Mesh(legGeo, legMat); legR.position.set(0.25, -0.8, 0); group.add(legR);
         }
 
         return group;
