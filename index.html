@@ -374,7 +374,7 @@
             <div id="timer">--:--</div>
         </div>
         <div id="crosshair"></div>
-        <div id="sniper-warning" class="hidden" style="position:fixed; top:35%; left:50%; transform:translate(-50%,-50%); color:#ff0000; font-size:120px; font-weight:bold; text-shadow:0 0 30px #ff0000; z-index:10; pointer-events:none;">!</div>
+        <div id="sniper-warning" style="display:none; position:fixed; top:35%; left:50%; transform:translate(-50%,-50%); color:#ff0000; font-size:120px; font-weight:bold; text-shadow:0 0 30px #ff0000; z-index:10; pointer-events:none;">!</div>
         <div id="status-left">
             <div class="stat-box">
                 <span class="label">INTEGRIDADE</span>
@@ -1100,14 +1100,14 @@
                     // Exclamação (Qdo falta 4 seg = timer >= 2.0)
                     const warnIcon = document.getElementById('sniper-warning');
                     if (en.mesh.sniperTimer >= 2.0 && en.mesh.sniperTimer <= 6.0) {
-                        warnIcon.classList.remove('hidden');
-                        warnIcon.style.opacity = 0.5 + Math.sin(en.mesh.sniperTimer * 15) * 0.5;
-                    } else if (warnIcon && !warnIcon.classList.contains('hidden')) {
-                        warnIcon.classList.add('hidden');
+                        if (warnIcon) warnIcon.style.display = 'block';
+                        if (warnIcon) warnIcon.style.opacity = 0.5 + Math.sin(en.mesh.sniperTimer * 15) * 0.5;
+                    } else if (warnIcon && warnIcon.style.display !== 'none') {
+                        warnIcon.style.display = 'none';
                     }
                     
                     if (en.mesh.sniperTimer >= 6.0) {
-                        if (warnIcon) warnIcon.classList.add('hidden');
+                        if (warnIcon) warnIcon.style.display = 'none';
                         en.mesh.sniperTimer = -5.0; // Recarga de 5 segundos (+0 vai atirar só a cada 11 sec)
                         en.mesh.sniperLine.material.opacity = 0;
                         
