@@ -231,6 +231,21 @@
             transition: width 0.3s;
         }
 
+        .stamina-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 5px;
+        }
+
+        #stamina-bar {
+            width: 100%;
+            height: 100%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            transition: width 0.3s;
+        }
+
         #hp-text {
             font-family: var(--font-header);
             font-weight: bold;
@@ -349,6 +364,9 @@
         <div class="start-msg">▶ CLIQUE EM QUALQUER LUGAR PARA JOGAR</div>
     </div>
 
+    <!-- DEV BUTTON -->
+    <button id="dev-btn" style="position:fixed; top:10px; right:10px; z-index:99999; padding:10px; background:#222; color:#00f2ff; font-family:'Orbitron', sans-serif; cursor:pointer; border:1px solid #00f2ff; border-radius:5px;">DEV MODE: OFF</button>
+
     <!-- HUD -->
     <div id="hud">
         <div id="timer-box">
@@ -363,6 +381,12 @@
                     <div id="hp-bar"></div>
                 </div>
                 <div id="hp-text">100 HP</div>
+            </div>
+            <div class="stat-box">
+                <span class="label">ESTAMINA</span>
+                <div class="stamina-bar-bg">
+                    <div id="stamina-bar"></div>
+                </div>
             </div>
             <div class="stat-box">
                 <span class="label">GRANADAS</span>
@@ -401,6 +425,8 @@
         let phase = 'WAITING', timer = 60, gameStarted = false;
         let bossSpawned = false;
         let isReloading = false;
+        let isDevMode = false;
+        let isImmortal = false;
         let grenadeProjectiles = [];
         let enemyProjectiles = [];
         let obstacles = []; // Lista de bounding boxes dos obstáculos para colisão
@@ -408,13 +434,19 @@
         // Player state
         const player = {
             hp: 100, maxHp: 100,
+            stamina: 100, maxStamina: 100,
             ammo: 30, maxAmmo: 30, totalAmmo: 90,
             grenades: 3,
             moveF: false, moveB: false, moveL: false, moveR: false,
             canJump: false, isRunning: false,
             velocity: new THREE.Vector3(),
             euler: new THREE.Euler(0, 0, 0, 'YXZ'),
-            sensitivity: 0.002
+            sensitivity: 0.002,
+            takeDamage: function(amt) {
+                if (isImmortal) return;
+                this.hp = Math.max(0, this.hp - amt);
+                if (this.hp <= 0) playerDie();
+            }
         };
 
         // --- INICIALIZAÇÃO ---
@@ -599,6 +631,26 @@
                     case 'ShiftLeft': player.isRunning = true; break;
                     case 'KeyR': reloadGun(); break;
                     case 'KeyG': throwGrenade(); break;
+                    case 'KeyM':
+                        if (isDevMode) {
+                            const w = prompt('Ir para horda (1-7):');
+                            if (w && !isNaN(w)) {
+                                currentWave = parseInt(w);
+                                phase = 'WAITING';
+                                timer = 0;
+                                bossSpawned = false;
+                                enemies.forEach(e => scene.remove(e.mesh));
+                                enemies = [];
+                                startPreparation();
+                            }
+                        }
+                        break;
+                    case 'KeyN':
+                        if (isDevMode) {
+                            isImmortal = !isImmortal;
+                            alert('Imortalidade: ' + (isImmortal ? 'ON' : 'OFF'));
+                        }
+                        break;
                 }
             });
             document.addEventListener('keyup', (e) => {
@@ -609,6 +661,12 @@
                     case 'KeyD': case 'ArrowRight': player.moveR = false; break;
                     case 'ShiftLeft': player.isRunning = false; break;
                 }
+            });
+
+            document.getElementById('dev-btn').addEventListener('click', () => {
+                isDevMode = !isDevMode;
+                document.getElementById('dev-btn').innerText = 'DEV MODE: ' + (isDevMode ? 'ON' : 'OFF');
+                if(isDevMode) alert('Dev Mode Ativado!\nM -> Pular para horda\nN -> Ligar/Desligar Imortalidade');
             });
         }
 
@@ -708,7 +766,17 @@
             const dirX = Number(player.moveR) - Number(player.moveL);
             const len = Math.sqrt(dirZ * dirZ + dirX * dirX) || 1;
 
-            const speed = player.isRunning ? 200 : 100;
+            if (player.isRunning && player.stamina > 0 && len > 0) {
+                player.stamina -= 25 * dt; 
+                if (player.stamina < 0) player.stamina = 0;
+            } else {
+                if (!player.isRunning) {
+                    player.stamina += 15 * dt;
+                    if (player.stamina > player.maxStamina) player.stamina = player.maxStamina;
+                }
+            }
+
+            const speed = (player.isRunning && player.stamina > 0) ? 200 : 100;
             vel.z -= (dirZ / len) * speed * dt;
             vel.x -= (dirX / len) * speed * dt;
 
@@ -748,6 +816,9 @@
             hpBar.style.width = player.hp + '%';
             if (player.hp < 30) hpBar.style.background = '#ff0055';
             else hpBar.style.background = '#00f2ff';
+
+            const stBar = document.getElementById('stamina-bar');
+            stBar.style.width = player.stamina + '%';
 
             document.getElementById('hp-text').innerText = Math.ceil(player.hp) + ' HP';
             document.getElementById('ammo-count').innerText = player.ammo;
@@ -903,11 +974,10 @@
                         if (dp < 20) {
                             const angle = vector.angleTo(tp);
                             if (angle < 0.15) {
-                                player.hp -= 20 * dt;
+                                player.takeDamage(20 * dt);
                             }
                         }
                     });
-                    if (player.hp <= 0) playerDie();
 
                     en.fireTimer += dt;
                     if (en.fireTimer >= 4.0) {
@@ -956,8 +1026,7 @@
 
                     en.mesh.lookAt(camera.position.x, en.mesh.position.y, camera.position.z);
                 } else {
-                    player.hp = Math.max(0, player.hp - en.damage * dt);
-                    if (player.hp <= 0) playerDie();
+                    player.takeDamage(en.damage * dt);
                 }
             });
 
@@ -972,8 +1041,7 @@
                 let remove = false;
                 if (p.timer <= 0) remove = true;
                 else if (p.mesh.position.distanceTo(camera.position) < (p.pType === 'bomb' ? 1.5 : 1.0)) {
-                    player.hp = Math.max(0, player.hp - p.damage);
-                    if (player.hp <= 0) playerDie();
+                    player.takeDamage(p.damage);
                     remove = true;
                 } else if (p.pType !== 'bomb' && checkCollision(p.mesh.position.x, p.mesh.position.z, 0.2)) {
                     remove = true;
