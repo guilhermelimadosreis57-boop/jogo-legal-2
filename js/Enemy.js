@@ -11,23 +11,27 @@ export class Enemy {
         
         this.fireTimer = 0;
 
-        if (this.type === 'drone') {
+        if (this.type === 'boss') {
+            this.hp = 200;
+            this.speed = 3;
+            this.damage = 30;
+        } else if (this.type === 'drone') {
             this.hp = 30 * difficulty;
-            this.speed = 5 + difficulty;
+            this.speed = 5;
             this.damage = 5 * difficulty;
         } else if (this.type === 'dog') {
             this.hp = 15 * difficulty;
-            this.speed = 22 + difficulty * 1.5;
+            this.speed = 22;
             this.damage = 15 * difficulty;
         } else {
-            this.hp = 50 * difficulty;
-            this.speed = 7 + difficulty * 2;
+            this.hp = 50 + difficulty;
+            this.speed = 7;
             this.damage = 10 * difficulty;
         }
 
         this.mesh = this.createMesh();
         this.mesh.position.copy(position);
-        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'dog' ? 0.5 : 1.5);
+        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'dog' ? 0.5 : (this.type === 'boss' ? 3 : 1.5));
         this.scene.add(this.mesh);
 
         this.alive = true;
@@ -36,14 +40,55 @@ export class Enemy {
     createMesh() {
         const group = new THREE.Group();
 
-        if (this.type === 'drone') {
+        if (this.type === 'boss') {
+            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x990099, emissive: 0x330033 });
+            const core = new THREE.Mesh(new THREE.OctahedronGeometry(2), this.bodyMat);
+            group.add(core);
+
+            // Rotatory lasers
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.2, 8, 24), new THREE.MeshBasicMaterial({ color: 0xff00ff }));
+            ring.rotation.x = Math.PI / 2;
+            group.add(ring);
+            
+            group.lasers = [];
+            const laserGeo = new THREE.CylinderGeometry(0.3, 0.3, 20);
+            laserGeo.translate(0, 10, 0); 
+            const laserMat = new THREE.MeshBasicMaterial({color: 0xff00ff, transparent: true, opacity: 0.8});
+            for (let i=0; i<4; i++) {
+                const laser = new THREE.Mesh(laserGeo, laserMat);
+                laser.rotation.x = Math.PI / 2;
+                laser.rotation.y = (Math.PI / 2) * i;
+                group.add(laser);
+                group.lasers.push(laser);
+            }
+        } else if (this.type === 'drone') {
             this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x0055ff, emissive: 0x001133 });
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.2), this.bodyMat);
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 8), this.bodyMat);
             group.add(body);
+            const armGeo = new THREE.BoxGeometry(2, 0.1, 0.2);
+            const arm1 = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0x333333}));
+            const arm2 = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({color:0x333333}));
+            arm2.rotation.y = Math.PI / 2;
+            group.add(arm1); group.add(arm2);
+            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({color:0xff0000}));
+            eye.position.set(0, 0, 0.4);
+            group.add(eye);
         } else if (this.type === 'dog') {
             this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x332200 });
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1.2), this.bodyMat);
-            group.add(body);
+            const dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 1.2), this.bodyMat);
+            dogBody.position.y = 0.5;
+            group.add(dogBody);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.5), this.bodyMat);
+            head.position.set(0, 0.8, 0.7);
+            group.add(head);
+            const legGeo = new THREE.BoxGeometry(0.15, 0.6, 0.15);
+            const legMat = new THREE.MeshStandardMaterial({color:0x222222});
+            const posList = [[-0.3, 0.3, 0.5], [0.3, 0.3, 0.5], [-0.3, 0.3, -0.4], [0.3, 0.3, -0.4]];
+            posList.forEach(p => {
+                const l = new THREE.Mesh(legGeo, legMat);
+                l.position.set(p[0], p[1], p[2]);
+                group.add(l);
+            });
         } else {
             this.bodyMat = new THREE.MeshStandardMaterial({ color: 0x550000 });
             const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.8), this.bodyMat);
@@ -70,6 +115,41 @@ export class Enemy {
 
     update(delta) {
         if (!this.alive) return;
+
+        if (this.type === 'boss') {
+            const toPlayer = new THREE.Vector3().subVectors(this.player.camera.position, this.mesh.position);
+            toPlayer.y = 0;
+            const bDist = toPlayer.length();
+            toPlayer.normalize();
+            if (bDist > 8) {
+                this.mesh.position.x += toPlayer.x * this.speed * delta;
+                this.mesh.position.z += toPlayer.z * this.speed * delta;
+            }
+            
+            this.mesh.rotation.y += delta * 1.5; 
+            
+            this.mesh.lasers.forEach(laser => {
+                const vector = new THREE.Vector3(0, 1, 0);
+                vector.applyQuaternion(laser.getWorldQuaternion(new THREE.Quaternion()));
+                
+                const tp = new THREE.Vector3().subVectors(this.player.camera.position, this.mesh.position);
+                const dp = tp.length();
+                tp.normalize();
+                if (dp < 20) {
+                    const angle = vector.angleTo(tp);
+                    if (angle < 0.15) {
+                        this.player.takeDamage(20 * delta);
+                    }
+                }
+            });
+
+            this.fireTimer += delta;
+            if (this.fireTimer >= 4.0 && this.game) {
+                this.fireTimer = 0;
+                this.game.fireEnemyProjectile(this.mesh.position, toPlayer, this.damage, 'bomb');
+            }
+            return;
+        }
 
         const playerPos = this.player.camera.position;
         const direction = new THREE.Vector3().subVectors(playerPos, this.mesh.position);
@@ -126,7 +206,7 @@ export class Enemy {
             this.bodyMat.emissive.setHex(0xffffff);
             setTimeout(() => {
                 if (this.bodyMat) {
-                    this.bodyMat.emissive.setHex(this.type === 'robot' ? 0x000000 : this.bodyMat.color.getHex() * 0.2);
+                    this.bodyMat.emissive.setHex((this.type === 'robot' || this.type === 'drone') ? 0x000000 : this.bodyMat.color.getHex() * 0.2);
                 }
             }, 100);
         }

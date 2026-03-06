@@ -24,6 +24,7 @@ class Game {
         this.phase = 'WAITING';
         this.timer = 180;
         this.gameStarted = false;
+        this.bossSpawned = false;
 
         this.init();
     }
@@ -121,7 +122,7 @@ class Game {
 
     startHordePhase() {
         this.phase = 'HORDE';
-        this.timer = 360;
+        this.timer = 90;
         document.getElementById('phase-label').innerText = 'HORDA ' + this.currentWave;
         document.getElementById('phase-label').style.color = '#ff0055';
         this.showMessage('HORDA ' + this.currentWave + ' / ' + this.maxWaves, 'Sobreviva até o tempo acabar!');
@@ -172,15 +173,18 @@ class Game {
         this.showMessage('VITÓRIA!', 'Você sobreviveu ao Protocolo Sucata!');
     }
 
-    fireEnemyProjectile(pos, dir, dmg) {
+    fireEnemyProjectile(pos, dir, dmg, pType = 'normal') {
+        const mat = pType === 'bomb' ? new THREE.MeshBasicMaterial({ color: 0xff00ff }) : new THREE.MeshBasicMaterial({ color: 0x00f2ff });
+        const s = pType === 'bomb' ? 0.6 : 0.2;
         const mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(0.2, 4, 4),
-            new THREE.MeshBasicMaterial({ color: 0x00f2ff })
+            new THREE.SphereGeometry(s, 4, 4),
+            mat
         );
         mesh.position.copy(pos);
         this.scene.add(mesh);
-        const velocity = dir.clone().multiplyScalar(25);
-        this.enemyProjectiles.push({ mesh, velocity, damage: dmg, timer: 3.0 });
+        const velocity = dir.clone().multiplyScalar(pType === 'bomb' ? 15 : 25);
+        if (pType === 'bomb') velocity.y = 10;
+        this.enemyProjectiles.push({ mesh, velocity, damage: dmg, timer: 3.0, pType });
     }
 
     animate() {
@@ -199,7 +203,13 @@ class Game {
         // Spawn de inimigos na horda
         if (this.phase === 'HORDE') {
             const alive = this.enemies.filter(e => e.alive).length;
-            if (alive < 5 + this.currentWave) {
+            if (this.currentWave === 7) {
+                if (alive === 0 && !this.bossSpawned) {
+                    const sp = new THREE.Vector3(0, 0, 0);
+                    this.enemies.push(new Enemy(this.scene, this.player, this.world, sp, this.currentWave, 'boss', this));
+                    this.bossSpawned = true;
+                }
+            } else if (alive < 5 + this.currentWave) {
                 const sp = new THREE.Vector3((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
                 if (sp.distanceTo(playerPos) > 20) {
                     let type = 'robot';
@@ -220,19 +230,30 @@ class Game {
         
         for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
             const p = this.enemyProjectiles[i];
+            if (p.pType === 'bomb') p.velocity.y -= 25 * delta;
+
             p.mesh.position.addScaledVector(p.velocity, delta);
             p.timer -= delta;
             
             let remove = false;
             if (p.timer <= 0) remove = true;
-            else if (p.mesh.position.distanceTo(this.camera.position) < 1.0) {
+            else if (p.mesh.position.distanceTo(this.camera.position) < (p.pType === 'bomb' ? 1.5 : 1.0)) {
                 this.player.takeDamage(p.damage);
                 remove = true;
-            } else if (this.world.checkCollision(p.mesh.position.x, p.mesh.position.z, 0.2)) {
+            } else if (p.pType !== 'bomb' && this.world.checkCollision(p.mesh.position.x, p.mesh.position.z, 0.2)) {
+                remove = true;
+            } else if (p.pType === 'bomb' && p.mesh.position.y <= 0.3) {
                 remove = true;
             }
             
             if (remove) {
+                if (p.pType === 'bomb') {
+                    for (let j=0; j<8; j++) {
+                        const angle = (Math.PI / 4) * j;
+                        const fragDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+                        this.fireEnemyProjectile(p.mesh.position, fragDir, p.damage/2, 'normal');
+                    }
+                }
                 this.scene.remove(p.mesh);
                 this.enemyProjectiles.splice(i, 1);
             }
