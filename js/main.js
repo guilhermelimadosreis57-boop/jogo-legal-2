@@ -84,7 +84,7 @@ class Game {
         // Coleta de loot
         window.addEventListener('loot-collected', (e) => {
             const t = e.detail.type;
-            if (t === 'ammo') this.player.totalAmmo = Math.min(this.player.totalAmmo + 30, 999);
+            if (t === 'ammo') this.player.totalAmmo = Math.min(this.player.totalAmmo + 38, 999);
             if (t === 'medkit') this.player.hp = Math.min(100, this.player.hp + 25);
             if (t === 'grenade') this.player.grenades = Math.min(3, this.player.grenades + 1);
         });

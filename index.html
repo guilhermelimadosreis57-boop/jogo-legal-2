@@ -521,41 +521,6 @@
             dir.castShadow = true;
             scene.add(dir);
 
-            // Ventilador
-            const fanGroup = new THREE.Group();
-            fanGroup.position.set(48, 1.5, -48);
-            
-            // Pedestal (baixo)
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1), new THREE.MeshStandardMaterial({color: 0xffffff}));
-            base.position.y = -1.4;
-            fanGroup.add(base);
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
-            pole.position.y = -0.7;
-            fanGroup.add(pole);
-
-            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
-            mount.rotation.x = Math.PI / 2;
-            mount.position.z = 0.5;
-            fanGroup.add(mount);
-            
-            const fanHead = new THREE.Group();
-            fanGroup.add(fanHead);
-            
-            const frame = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 32), new THREE.MeshStandardMaterial({color: 0xffffff}));
-            fanHead.add(frame);
-            
-            const fanRotor = new THREE.Group();
-            fanHead.add(fanRotor);
-            
-            const bladeGeo = new THREE.BoxGeometry(0.05, 2.8, 0.3);
-            const blades1 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
-            const blades2 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
-            blades2.rotation.x = Math.PI / 2;
-            fanRotor.add(blades1);
-            fanRotor.add(blades2);
-            
-            window.ventilator = { head: fanHead, rotor: fanRotor, time: 0 };
-            scene.add(fanGroup);
         }
 
         function addWall(x, y, z, w, h, d) {
@@ -1263,7 +1228,7 @@
                 if (l.mesh.position.distanceTo(camera.position) < 1.5) {
                     l.collected = true;
                     scene.remove(l.mesh);
-                    if (l.type === 'ammo') player.totalAmmo = Math.min(player.totalAmmo + 30, 999);
+                    if (l.type === 'ammo') player.totalAmmo = Math.min(player.totalAmmo + 38, 999);
                     if (l.type === 'medkit') player.hp = Math.min(100, player.hp + 25);
                     if (l.type === 'grenade') player.grenades = Math.min(3, player.grenades + 1);
                 }
@@ -1341,12 +1306,6 @@
             let dt = clock.getDelta();
             if (dt > 0.1) dt = 0.1; // Limitador de delta para evitar dobras e falhas da física
             
-            if (window.ventilator) {
-                window.ventilator.rotor.rotation.z -= dt * 15; // Girar todas as hélices juntas com o rotor
-                window.ventilator.time += dt;
-                window.ventilator.head.rotation.y = Math.sin(window.ventilator.time * 1.5) * (Math.PI / 4) - (Math.PI / 4);
-            }
-
             updatePlayer(dt);
             updateTimer(dt);
 
