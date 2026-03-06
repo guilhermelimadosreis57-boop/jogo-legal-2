@@ -524,20 +524,20 @@
             const fanGroup = new THREE.Group();
             fanGroup.position.set(48, 5, -48);
             
-            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 2), new THREE.MeshStandardMaterial({color: 0x222222}));
+            const mount = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1), new THREE.MeshStandardMaterial({color: 0xffffff}));
             mount.rotation.x = Math.PI / 2;
-            mount.position.z = 1;
+            mount.position.z = 0.5;
             fanGroup.add(mount);
             
             const fanHead = new THREE.Group();
             fanGroup.add(fanHead);
             
-            const frame = new THREE.Mesh(new THREE.TorusGeometry(3, 0.2, 8, 32), new THREE.MeshStandardMaterial({color: 0x111111}));
+            const frame = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.1, 8, 32), new THREE.MeshStandardMaterial({color: 0xffffff}));
             fanHead.add(frame);
             
-            const bladeGeo = new THREE.BoxGeometry(0.1, 5.5, 0.5);
-            const blades1 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0x444444}));
-            const blades2 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0x444444}));
+            const bladeGeo = new THREE.BoxGeometry(0.05, 2.8, 0.3);
+            const blades1 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
+            const blades2 = new THREE.Mesh(bladeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd}));
             blades2.rotation.x = Math.PI / 2;
             fanHead.add(blades1);
             fanHead.add(blades2);
@@ -1078,13 +1078,15 @@
                         scene.add(en.mesh.sniperLine);
                     }
                     
-                    if (en.mesh.sniperTimer > 0) {
-                        en.mesh.sniperLine.material.opacity = en.mesh.sniperTimer / 5.0; // Intensifica com o tempo
+                    if (en.mesh.sniperTimer > 0 && en.mesh.sniperTimer <= 6.0) {
+                        en.mesh.sniperLine.material.opacity = 0.3 + (en.mesh.sniperTimer / 6.0) * 0.7; // Feixe mais evidente logo de cara
                         en.mesh.sniperLine.geometry.setFromPoints([en.mesh.position, camera.position]);
+                    } else {
+                        en.mesh.sniperLine.material.opacity = 0;
                     }
                     
-                    if (en.mesh.sniperTimer >= 5.0) {
-                        en.mesh.sniperTimer = 0;
+                    if (en.mesh.sniperTimer >= 6.0) {
+                        en.mesh.sniperTimer = -5.0; // Recarga de 5 segundos (+0 vai atirar só a cada 11 sec)
                         en.mesh.sniperLine.material.opacity = 0;
                         
                         // Checa se acertou (raycast simplificado de paredes)
@@ -1258,7 +1260,7 @@
 
         function startHorde() {
             phase = 'HORDE';
-            timer = 90;
+            timer = 60;
             document.getElementById('phase-label').innerText = 'HORDA ' + currentWave;
             document.getElementById('phase-label').style.color = '#ff0055';
             showMsg('HORDA ' + currentWave + ' / ' + maxWaves, 'Sobreviva até o tempo acabar!');

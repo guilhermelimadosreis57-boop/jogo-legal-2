@@ -202,13 +202,15 @@ export class Enemy {
                 this.scene.add(this.mesh.sniperLine);
             }
             
-            if (this.mesh.sniperTimer > 0) {
-                this.mesh.sniperLine.material.opacity = this.mesh.sniperTimer / 5.0; // Intensifica com o tempo
+            if (this.mesh.sniperTimer > 0 && this.mesh.sniperTimer <= 6.0) {
+                this.mesh.sniperLine.material.opacity = 0.3 + (this.mesh.sniperTimer / 6.0) * 0.7; // Feixe mais evidente logo de cara
                 this.mesh.sniperLine.geometry.setFromPoints([this.mesh.position, this.player.camera.position]);
+            } else {
+                this.mesh.sniperLine.material.opacity = 0;
             }
             
-            if (this.mesh.sniperTimer >= 5.0) {
-                this.mesh.sniperTimer = 0;
+            if (this.mesh.sniperTimer >= 6.0) {
+                this.mesh.sniperTimer = -5.0; // Recarga de 5 segundos (+0 vai atirar só a cada 11 sec)
                 this.mesh.sniperLine.material.opacity = 0;
                 
                 // Checa se acertou (raycast simplificado de paredes)

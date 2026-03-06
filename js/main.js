@@ -122,7 +122,7 @@ class Game {
 
     startHordePhase() {
         this.phase = 'HORDE';
-        this.timer = 90;
+        this.timer = 60;
         document.getElementById('phase-label').innerText = 'HORDA ' + this.currentWave;
         document.getElementById('phase-label').style.color = '#ff0055';
         this.showMessage('HORDA ' + this.currentWave + ' / ' + this.maxWaves, 'Sobreviva até o tempo acabar!');
