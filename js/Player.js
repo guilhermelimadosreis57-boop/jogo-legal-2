@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 export class Player {
-    constructor(camera, domElement) {
+    constructor(camera, domElement, world) {
         this.camera = camera;
+        this.world = world;
 
         // Atributos
         this.hp = 100;
@@ -108,8 +109,29 @@ export class Player {
         const right = new THREE.Vector3();
         right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-        this.camera.position.addScaledVector(forward, -this.velocity.z * delta);
-        this.camera.position.addScaledVector(right, -this.velocity.x * delta);
+        const moveStepX = -this.velocity.x * delta;
+        const moveStepZ = -this.velocity.z * delta;
+
+        // Calculate theoretical next position
+        const nextPos = this.camera.position.clone();
+        nextPos.addScaledVector(forward, moveStepZ);
+        nextPos.addScaledVector(right, moveStepX);
+
+        if (this.world) {
+            if (!this.world.checkCollision(nextPos.x, this.camera.position.z, 0.5)) {
+                this.camera.position.x = nextPos.x;
+            } else {
+                this.velocity.x = 0;
+            }
+            if (!this.world.checkCollision(this.camera.position.x, nextPos.z, 0.5)) {
+                this.camera.position.z = nextPos.z;
+            } else {
+                this.velocity.z = 0;
+            }
+        } else {
+            this.camera.position.copy(nextPos);
+        }
+
         this.camera.position.y += this.velocity.y * delta;
 
         // Chão
@@ -156,7 +178,12 @@ export class Player {
         document.exitPointerLock();
         document.getElementById('msg-title').innerText = 'VOCÊ FOI DESMANTELADO';
         document.getElementById('msg-desc').innerText = 'O Protocolo Sucata falhou.';
-        document.getElementById('message-overlay').classList.remove('hidden');
-        setTimeout(() => location.reload(), 3000);
+        
+        // Show restart button
+        const restartBtn = document.getElementById('restart-btn');
+        if (restartBtn) restartBtn.style.display = 'inline-block';
+        
+        document.getElementById('msg-overlay').classList.remove('hidden');
+        document.getElementById('msg-overlay').style.pointerEvents = 'auto';
     }
 }

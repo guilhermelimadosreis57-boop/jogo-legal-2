@@ -17,6 +17,7 @@ class Game {
         this.weapon = null;
         this.enemies = [];
         this.loots = [];
+        this.enemyProjectiles = [];
 
         this.currentWave = 1;
         this.maxWaves = 7;
@@ -42,7 +43,7 @@ class Game {
 
         // Mundo + Jogador + Arma
         this.world = new World(this.scene);
-        this.player = new Player(this.camera, this.renderer.domElement);
+        this.player = new Player(this.camera, this.renderer.domElement, this.world);
         this.weapon = new Weapon(this.camera, this.scene);
         this.scene.add(this.camera);
 
@@ -171,6 +172,17 @@ class Game {
         this.showMessage('VITÓRIA!', 'Você sobreviveu ao Protocolo Sucata!');
     }
 
+    fireEnemyProjectile(pos, dir, dmg) {
+        const mesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4),
+            new THREE.MeshBasicMaterial({ color: 0x00f2ff })
+        );
+        mesh.position.copy(pos);
+        this.scene.add(mesh);
+        const velocity = dir.clone().multiplyScalar(25);
+        this.enemyProjectiles.push({ mesh, velocity, damage: dmg, timer: 3.0 });
+    }
+
     animate() {
         requestAnimationFrame(() => this.animate());
         const delta = this.clock.getDelta();
@@ -190,13 +202,42 @@ class Game {
             if (alive < 5 + this.currentWave) {
                 const sp = new THREE.Vector3((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
                 if (sp.distanceTo(playerPos) > 20) {
-                    this.enemies.push(new Enemy(this.scene, this.player, sp, this.currentWave));
+                    let type = 'robot';
+                    if (this.currentWave >= 5) {
+                        const r = Math.random();
+                        if (r < 0.35) type = 'dog';
+                        else if (r < 0.65) type = 'drone';
+                    } else if (this.currentWave >= 2) {
+                        if (Math.random() < 0.4) type = 'drone';
+                    }
+                    this.enemies.push(new Enemy(this.scene, this.player, this.world, sp, this.currentWave, type, this));
                 }
             }
         }
 
         this.enemies.forEach(e => e.update(delta));
         this.loots.forEach(l => l.update(delta, playerPos));
+        
+        for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
+            const p = this.enemyProjectiles[i];
+            p.mesh.position.addScaledVector(p.velocity, delta);
+            p.timer -= delta;
+            
+            let remove = false;
+            if (p.timer <= 0) remove = true;
+            else if (p.mesh.position.distanceTo(this.camera.position) < 1.0) {
+                this.player.takeDamage(p.damage);
+                remove = true;
+            } else if (this.world.checkCollision(p.mesh.position.x, p.mesh.position.z, 0.2)) {
+                remove = true;
+            }
+            
+            if (remove) {
+                this.scene.remove(p.mesh);
+                this.enemyProjectiles.splice(i, 1);
+            }
+        }
+
         this.renderer.render(this.scene, this.camera);
     }
 }

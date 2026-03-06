@@ -303,6 +303,22 @@
             margin-bottom: 10px;
         }
 
+        #restart-btn {
+            display: none;
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            font-family: var(--font-header);
+            background: var(--primary);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        #restart-btn:hover {
+            background: #fff;
+        }
+
         #msg-desc {
             color: #ccc;
             font-size: 1.1rem;
@@ -365,6 +381,7 @@
             <div style="text-align:center">
                 <h1 id="msg-title"></h1>
                 <p id="msg-desc"></p>
+                <button id="restart-btn" onclick="location.reload()">REINICIAR</button>
             </div>
         </div>
     </div>
@@ -384,6 +401,7 @@
         let phase = 'WAITING', timer = 60, gameStarted = false;
         let isReloading = false;
         let grenadeProjectiles = [];
+        let enemyProjectiles = [];
         let obstacles = []; // Lista de bounding boxes dos obstáculos para colisão
 
         // Player state
@@ -737,61 +755,159 @@
         }
 
         // --- INIMIGOS ---
-        function createEnemy(pos, difficulty) {
+        function createEnemy(pos, difficulty, type = 'robot') {
             const group = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.8), new THREE.MeshStandardMaterial({ color: 0x550000 }));
-            group.add(body);
-            const eye = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-            eye.position.set(0, 0.4, 0.4);
-            group.add(eye);
-            const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
-            l1.position.set(-0.3, -1, 0); group.add(l1);
-            const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
-            l2.position.set(0.3, -1, 0); group.add(l2);
+            let hp, speed, damage, bodyMat;
+            let fireTimer = 0;
 
-            group.position.copy(pos);
-            group.position.y = 1.5;
+            if (type === 'drone') {
+                hp = 30 * difficulty;
+                speed = 5 + difficulty;
+                damage = 5 * difficulty; // balanceado
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0x0055ff, emissive: 0x001133 }); // azul
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 1.2), bodyMat);
+                group.add(body);
+                group.position.y = 4;
+            } else if (type === 'dog') {
+                hp = 15 * difficulty;
+                speed = 22 + difficulty * 1.5; // Bem rápido
+                damage = 15 * difficulty;
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x332200 }); // laranja
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1.2), bodyMat);
+                group.add(body);
+                group.position.y = 0.5;
+            } else {
+                hp = 50 * difficulty;
+                speed = 7 + difficulty * 2;
+                damage = 10 * difficulty;
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0x550000 });
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 0.8), bodyMat);
+                group.add(body);
+                const eye = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.1), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+                eye.position.set(0, 0.4, 0.4);
+                group.add(eye);
+                const legMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+                const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
+                l1.position.set(-0.3, -1, 0); group.add(l1);
+                const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), legMat);
+                l2.position.set(0.3, -1, 0); group.add(l2);
+                group.position.y = 1.5;
+            }
+
+            group.position.x = pos.x;
+            group.position.z = pos.z;
             scene.add(group);
 
             return {
-                mesh: group,
-                hp: 50 * difficulty,
-                speed: 7 + difficulty * 2,
-                damage: 10 * difficulty,
-                alive: true,
+                mesh: group, type, hp, speed, damage, alive: true, fireTimer,
                 takeDamage(amt) {
                     this.hp -= amt;
-                    body.material.emissive.setHex(0xff0000);
-                    setTimeout(() => { if (body) body.material.emissive.setHex(0); }, 100);
+                    bodyMat.emissive.setHex(0xffffff);
+                    setTimeout(() => { if (bodyMat) bodyMat.emissive.setHex(type==='robot'? 0 : bodyMat.color.getHex() * 0.2); }, 100);
                     if (this.hp <= 0 && this.alive) { this.alive = false; scene.remove(this.mesh); }
                 }
             };
+        }
+
+        function checkCollision(x, z, radius) {
+            for (const ob of obstacles) {
+                const cx = Math.max(ob.min.x, Math.min(x, ob.max.x));
+                const cz = Math.max(ob.min.z, Math.min(z, ob.max.z));
+                const dx = x - cx;
+                const dz = z - cz;
+                if (dx * dx + dz * dz < radius * radius) return true;
+            }
+            return false;
+        }
+
+        function fireEnemyProjectile(pos, dir, dmg) {
+            const mesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.2, 4, 4),
+                new THREE.MeshBasicMaterial({ color: 0x00f2ff })
+            );
+            mesh.position.copy(pos);
+            scene.add(mesh);
+            const velocity = dir.clone().multiplyScalar(25);
+            enemyProjectiles.push({ mesh, velocity, damage: dmg, timer: 3.0 });
         }
 
         function updateEnemies(dt) {
             enemies.forEach(en => {
                 if (!en.alive) return;
                 const dir = new THREE.Vector3().subVectors(camera.position, en.mesh.position);
+                
+                if (en.type === 'drone') {
+                    const dist = dir.length();
+                    dir.normalize();
+                    if (dist > 12) {
+                        const mStepX = dir.x * en.speed * dt;
+                        const mStepZ = dir.z * en.speed * dt;
+                        if (!checkCollision(en.mesh.position.x + mStepX, en.mesh.position.z, 0.6)) en.mesh.position.x += mStepX;
+                        if (!checkCollision(en.mesh.position.x, en.mesh.position.z + mStepZ, 0.6)) en.mesh.position.z += mStepZ;
+                    }
+                    en.mesh.lookAt(camera.position.x, en.mesh.position.y, camera.position.z);
+                    en.fireTimer += dt;
+                    if (en.fireTimer >= 5.0 && dist < 35) {
+                        en.fireTimer = 0;
+                        fireEnemyProjectile(en.mesh.position, dir, en.damage);
+                    }
+                    return;
+                }
+
                 dir.y = 0;
                 const dist = dir.length();
                 dir.normalize();
+                
                 if (dist > 1.5) {
-                    en.mesh.position.add(dir.multiplyScalar(en.speed * dt));
+                    const colRadius = en.type === 'dog' ? 0.3 : 0.5;
+                    const mStepX = dir.x * en.speed * dt;
+                    const mStepZ = dir.z * en.speed * dt;
+                    let moved = false;
+                    
+                    if (!checkCollision(en.mesh.position.x + mStepX, en.mesh.position.z, colRadius)) {
+                        en.mesh.position.x += mStepX; moved = true;
+                    }
+                    if (!checkCollision(en.mesh.position.x, en.mesh.position.z + mStepZ, colRadius)) {
+                        en.mesh.position.z += mStepZ; moved = true;
+                    }
+
                     en.mesh.lookAt(camera.position.x, en.mesh.position.y, camera.position.z);
                 } else {
                     player.hp = Math.max(0, player.hp - en.damage * dt);
                     if (player.hp <= 0) playerDie();
                 }
             });
+
+            // Update Drone Projectiles
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const p = enemyProjectiles[i];
+                p.mesh.position.addScaledVector(p.velocity, dt);
+                p.timer -= dt;
+                
+                let remove = false;
+                if (p.timer <= 0) remove = true;
+                else if (p.mesh.position.distanceTo(camera.position) < 1.0) {
+                    player.hp = Math.max(0, player.hp - p.damage);
+                    if (player.hp <= 0) playerDie();
+                    remove = true;
+                } else if (checkCollision(p.mesh.position.x, p.mesh.position.z, 0.2)) {
+                    remove = true;
+                }
+                
+                if (remove) {
+                    scene.remove(p.mesh);
+                    enemyProjectiles.splice(i, 1);
+                }
+            }
         }
 
         function playerDie() {
             document.exitPointerLock();
             document.getElementById('msg-title').innerText = 'VOCÊ FOI DESMANTELADO';
             document.getElementById('msg-desc').innerText = 'O Protocolo Sucata falhou.';
+            document.getElementById('restart-btn').style.display = 'inline-block';
             document.getElementById('msg-overlay').classList.remove('hidden');
-            setTimeout(() => location.reload(), 3000);
+            document.getElementById('msg-overlay').style.pointerEvents = 'auto'; // Habilitar clique no botão!
         }
 
         // --- LOOT ---
@@ -902,7 +1018,15 @@
                 if (alive < 5 + currentWave) {
                     const sp = new THREE.Vector3((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
                     if (sp.distanceTo(camera.position) > 20) {
-                        enemies.push(createEnemy(sp, currentWave));
+                        let type = 'robot';
+                        if (currentWave >= 5) {
+                            const r = Math.random();
+                            if (r < 0.35) type = 'dog';
+                            else if (r < 0.65) type = 'drone';
+                        } else if (currentWave >= 2) {
+                            if (Math.random() < 0.4) type = 'drone';
+                        }
+                        enemies.push(createEnemy(sp, currentWave, type));
                     }
                 }
             }

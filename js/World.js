@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export class World {
     constructor(scene) {
         this.scene = scene;
+        this.obstacles = [];
         this.init();
     }
 
@@ -30,12 +31,20 @@ export class World {
         this.createWall(-50, 5, 0, 1, 10, 100); // Oeste
         this.createWall(50, 5, 0, 1, 10, 100);  // Leste
 
+        this.obstacles.push({ min: new THREE.Vector3(-50, 0, -50.5), max: new THREE.Vector3(50, 10, -49.5) });
+        this.obstacles.push({ min: new THREE.Vector3(-50, 0, 49.5), max: new THREE.Vector3(50, 10, 50.5) });
+        this.obstacles.push({ min: new THREE.Vector3(-50.5, 0, -50), max: new THREE.Vector3(-49.5, 10, 50) });
+        this.obstacles.push({ min: new THREE.Vector3(49.5, 0, -50), max: new THREE.Vector3(50.5, 10, 50) });
+
         // Obstáculos (Caixas e Paredes internas)
-        this.createBox(10, 2, 10, 4, 4, 4);
-        this.createBox(-15, 2, 5, 6, 4, 3);
-        this.createBox(5, 1, -20, 3, 2, 8);
-        this.createBox(-20, 3, -15, 5, 6, 5);
-        this.createBox(20, 2, 20, 8, 4, 8);
+        this.obstacles.push(this.createBox(10, 2, 10, 4, 4, 4));
+        this.obstacles.push(this.createBox(-15, 2, 5, 6, 4, 3));
+        this.obstacles.push(this.createBox(5, 1, -20, 3, 2, 8));
+        this.obstacles.push(this.createBox(-20, 3, -15, 5, 6, 5));
+        this.obstacles.push(this.createBox(20, 2, 20, 8, 4, 8));
+        this.obstacles.push(this.createBox(-30, 2, 25, 4, 4, 6));
+        this.obstacles.push(this.createBox(35, 1.5, -10, 5, 3, 5));
+        this.obstacles.push(this.createBox(-10, 2, -35, 6, 4, 4));
 
         // Iluminação
         const ambLight = new THREE.AmbientLight(0x404040, 1);
@@ -78,5 +87,21 @@ export class World {
         const lineMat = new THREE.LineBasicMaterial({ color: 0x00f2ff });
         const wireframe = new THREE.LineSegments(edges, lineMat);
         box.add(wireframe);
+
+        return {
+            min: new THREE.Vector3(x - w / 2, y - h / 2, z - d / 2),
+            max: new THREE.Vector3(x + w / 2, y + h / 2, z + d / 2)
+        };
+    }
+
+    checkCollision(x, z, radius) {
+        for (const ob of this.obstacles) {
+            const cx = Math.max(ob.min.x, Math.min(x, ob.max.x));
+            const cz = Math.max(ob.min.z, Math.min(z, ob.max.z));
+            const dx = x - cx;
+            const dz = z - cz;
+            if (dx * dx + dz * dz < radius * radius) return true;
+        }
+        return false;
     }
 }

@@ -224,3 +224,20 @@ body {
     color: var(--secondary);
     margin-bottom: 10px;
 }
+
+#restart-btn {
+    display: none;
+    margin-top: 20px;
+    padding: 10px 20px;
+    font-size: 1.2rem;
+    font-family: var(--font-header);
+    background: var(--primary);
+    color: #000;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#restart-btn:hover {
+    background: #fff;
+}
