@@ -422,7 +422,7 @@
         // --- VARIÁVEIS GLOBAIS ---
         let scene, camera, renderer, clock;
         let enemies = [], loots = [];
-        let currentWave = 1, maxWaves = 7;
+        let currentWave = 1, maxWaves = 6;
         let phase = 'WAITING', timer = 30, gameStarted = false;
         let bossSpawned = false;
         let isReloading = false;
@@ -841,7 +841,7 @@
             let fireTimer = 0;
 
             if (type === 'boss') {
-                hp = 10000;
+                hp = 8000;
                 speed = 3;
                 damage = 30;
                 bodyMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0x330011, metalness: 0.5 });
@@ -1312,7 +1312,7 @@
             // Spawn inimigos na horda
             if (phase === 'HORDE') {
                 const alive = enemies.filter(e => e.alive).length;
-                if (currentWave === 7) {
+                if (currentWave === 6) {
                     if (alive === 0 && !bossSpawned) {
                         const sp = new THREE.Vector3(0, 0, 0);
                         enemies.push(createEnemy(sp, currentWave, 'boss'));
@@ -1331,6 +1331,11 @@
                             const r = Math.random();
                             if (r < 0.2) type = 'duck';
                             else if (r < 0.5) type = 'drone';
+                            else if (r < 0.65) type = 'dog';
+                        } else if (currentWave >= 3) {
+                            const r = Math.random();
+                            if (r < 0.4) type = 'drone';
+                            else if (r < 0.55) type = 'dog';
                         } else if (currentWave >= 2) {
                             if (Math.random() < 0.4) type = 'drone';
                         }

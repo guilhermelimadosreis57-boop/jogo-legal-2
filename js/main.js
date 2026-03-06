@@ -20,7 +20,7 @@ class Game {
         this.enemyProjectiles = [];
 
         this.currentWave = 1;
-        this.maxWaves = 7;
+        this.maxWaves = 6;
         this.phase = 'WAITING';
         this.timer = 180;
         this.gameStarted = false;
@@ -150,7 +150,7 @@ class Game {
     updateTimer(delta) {
         if (!this.gameStarted || this.phase === 'WAITING') return;
 
-        if (this.currentWave === 7 && this.phase === 'HORDE') {
+        if (this.currentWave === 6 && this.phase === 'HORDE') {
             document.getElementById('timer').innerText = "INFINITO";
             return;
         }
@@ -216,7 +216,7 @@ class Game {
         // Spawn de inimigos na horda
         if (this.phase === 'HORDE') {
             const alive = this.enemies.filter(e => e.alive).length;
-            if (this.currentWave === 7) {
+            if (this.currentWave === 6) {
                 if (alive === 0 && !this.bossSpawned) {
                     const sp = new THREE.Vector3(0, 0, 0);
                     this.enemies.push(new Enemy(this.scene, this.player, this.world, sp, this.currentWave, 'boss', this));
@@ -235,6 +235,11 @@ class Game {
                         const r = Math.random();
                         if (r < 0.2) type = 'duck';
                         else if (r < 0.5) type = 'drone';
+                        else if (r < 0.65) type = 'dog';
+                    } else if (this.currentWave >= 3) {
+                        const r = Math.random();
+                        if (r < 0.4) type = 'drone';
+                        else if (r < 0.55) type = 'dog';
                     } else if (this.currentWave >= 2) {
                         if (Math.random() < 0.4) type = 'drone';
                     }

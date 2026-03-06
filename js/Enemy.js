@@ -12,7 +12,7 @@ export class Enemy {
         this.fireTimer = 0;
 
         if (this.type === 'boss') {
-            this.hp = 10000;
+            this.hp = 8000;
             this.speed = 3;
             this.damage = 30;
         } else if (this.type === 'drone') {
