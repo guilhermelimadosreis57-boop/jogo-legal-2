@@ -839,7 +839,7 @@
             let fireTimer = 0;
 
             if (type === 'boss') {
-                hp = 200;
+                hp = 2000;
                 speed = 3;
                 damage = 30;
                 bodyMat = new THREE.MeshStandardMaterial({ color: 0x990099, emissive: 0x330033 });
@@ -859,7 +859,7 @@
                     group.add(laser);
                     group.lasers.push(laser);
                 }
-                group.position.y = 3;
+                group.position.y = 1.5;
             } else if (type === 'drone') {
                 hp = 30 * difficulty;
                 speed = 5;
@@ -971,16 +971,21 @@
                     en.mesh.rotation.y += dt * 1.5; 
                     
                     en.mesh.lasers.forEach(laser => {
-                        const vector = new THREE.Vector3(0, 1, 0);
-                        vector.applyQuaternion(laser.getWorldQuaternion(new THREE.Quaternion()));
+                        const lDir = new THREE.Vector3(0, 1, 0);
+                        lDir.applyQuaternion(laser.getWorldQuaternion(new THREE.Quaternion()));
+                        lDir.y = 0; 
+                        lDir.normalize();
                         
-                        const tp = new THREE.Vector3().subVectors(camera.position, en.mesh.position);
-                        const dp = tp.length();
-                        tp.normalize();
-                        if (dp < 20) {
-                            const angle = vector.angleTo(tp);
-                            if (angle < 0.15) {
-                                player.takeDamage(20 * dt);
+                        const toPlayerFlat = new THREE.Vector3().subVectors(camera.position, en.mesh.position);
+                        toPlayerFlat.y = 0;
+                        const distP = toPlayerFlat.length();
+                        toPlayerFlat.normalize();
+                        
+                        if (distP > 0 && distP < 20) {
+                            const angle = lDir.angleTo(toPlayerFlat);
+                            // Se a distância angular for pequena, o laser está varrendo o jogador
+                            if (angle < 0.2) {
+                                player.takeDamage(50 * dt);
                             }
                         }
                     });

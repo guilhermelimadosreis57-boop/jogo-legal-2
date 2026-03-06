@@ -12,7 +12,7 @@ export class Enemy {
         this.fireTimer = 0;
 
         if (this.type === 'boss') {
-            this.hp = 200;
+            this.hp = 2000;
             this.speed = 3;
             this.damage = 30;
         } else if (this.type === 'drone') {
@@ -31,7 +31,7 @@ export class Enemy {
 
         this.mesh = this.createMesh();
         this.mesh.position.copy(position);
-        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'dog' ? 0.5 : (this.type === 'boss' ? 3 : 1.5));
+        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'dog' ? 0.5 : (this.type === 'boss' ? 1.5 : 1.5));
         this.scene.add(this.mesh);
 
         this.alive = true;
@@ -129,16 +129,20 @@ export class Enemy {
             this.mesh.rotation.y += delta * 1.5; 
             
             this.mesh.lasers.forEach(laser => {
-                const vector = new THREE.Vector3(0, 1, 0);
-                vector.applyQuaternion(laser.getWorldQuaternion(new THREE.Quaternion()));
+                const lDir = new THREE.Vector3(0, 1, 0);
+                lDir.applyQuaternion(laser.getWorldQuaternion(new THREE.Quaternion()));
+                lDir.y = 0; 
+                lDir.normalize();
                 
-                const tp = new THREE.Vector3().subVectors(this.player.camera.position, this.mesh.position);
-                const dp = tp.length();
-                tp.normalize();
-                if (dp < 20) {
-                    const angle = vector.angleTo(tp);
-                    if (angle < 0.15) {
-                        this.player.takeDamage(20 * delta);
+                const toPlayerFlat = new THREE.Vector3().subVectors(this.player.camera.position, this.mesh.position);
+                toPlayerFlat.y = 0;
+                const distP = toPlayerFlat.length();
+                toPlayerFlat.normalize();
+                
+                if (distP > 0 && distP < 20) {
+                    const angle = lDir.angleTo(toPlayerFlat);
+                    if (angle < 0.2) {
+                        this.player.takeDamage(50 * delta);
                     }
                 }
             });
