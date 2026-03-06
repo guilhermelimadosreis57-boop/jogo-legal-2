@@ -149,6 +149,12 @@ class Game {
 
     updateTimer(delta) {
         if (!this.gameStarted || this.phase === 'WAITING') return;
+
+        if (this.currentWave === 7 && this.phase === 'HORDE') {
+            document.getElementById('timer').innerText = "INFINITO";
+            return;
+        }
+
         this.timer -= delta;
         if (this.timer <= 0) {
             if (this.phase === 'PREPARATION') {
@@ -170,7 +176,13 @@ class Game {
 
     win() {
         document.exitPointerLock();
-        this.showMessage('VITÓRIA!', 'Você sobreviveu ao Protocolo Sucata!');
+        document.getElementById('msg-title').innerText = 'VITÓRIA ABSOLUTA';
+        document.getElementById('msg-title').style.color = '#00f2ff';
+        document.getElementById('msg-desc').innerText = 'O Rei Sucata foi destruído. O Protocolo Sucata foi concluído!';
+        document.getElementById('restart-btn').style.display = 'inline-block';
+        document.getElementById('restart-btn').innerText = 'NOVA PARTIDA';
+        document.getElementById('message-overlay').classList.remove('hidden');
+        document.getElementById('message-overlay').style.pointerEvents = 'auto'; 
     }
 
     fireEnemyProjectile(pos, dir, dmg, pType = 'normal') {
@@ -216,8 +228,13 @@ class Game {
                     let type = 'robot';
                     if (this.currentWave >= 5) {
                         const r = Math.random();
-                        if (r < 0.35) type = 'dog';
-                        else if (r < 0.65) type = 'drone';
+                        if (r < 0.25) type = 'dog';
+                        else if (r < 0.55) type = 'drone';
+                        else if (r < 0.75) type = 'duck';
+                    } else if (this.currentWave >= 4) {
+                        const r = Math.random();
+                        if (r < 0.2) type = 'duck';
+                        else if (r < 0.5) type = 'drone';
                     } else if (this.currentWave >= 2) {
                         if (Math.random() < 0.4) type = 'drone';
                     }
@@ -249,10 +266,10 @@ class Game {
             
             if (remove) {
                 if (p.pType === 'bomb') {
-                    for (let j=0; j<8; j++) {
-                        const angle = (Math.PI / 4) * j;
+                    for (let j=0; j<12; j++) {
+                        const angle = (Math.PI / 6) * j;
                         const fragDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
-                        this.fireEnemyProjectile(p.mesh.position, fragDir, p.damage/2, 'normal');
+                        this.fireEnemyProjectile(p.mesh.position, fragDir, 5, 'normal');
                     }
                 }
                 this.scene.remove(p.mesh);

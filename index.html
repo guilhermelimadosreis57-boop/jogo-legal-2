@@ -839,7 +839,7 @@
             let fireTimer = 0;
 
             if (type === 'boss') {
-                hp = 2000;
+                hp = 10000;
                 speed = 3;
                 damage = 30;
                 bodyMat = new THREE.MeshStandardMaterial({ color: 0x990099, emissive: 0x330033 });
@@ -860,6 +860,7 @@
                     group.lasers.push(laser);
                 }
                 group.position.y = 1.5;
+                group.sniperTimer = 0;
             } else if (type === 'drone') {
                 hp = 30 * difficulty;
                 speed = 5;
@@ -876,10 +877,21 @@
                 eye.position.set(0, 0, 0.4);
                 group.add(eye);
                 group.position.y = 4;
+            } else if (type === 'duck') {
+                hp = 150 * difficulty;
+                speed = 2; // lento
+                damage = 25 * difficulty;
+                bodyMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 }); // Amarelo Pato
+                const duckBody = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), bodyMat);
+                group.add(duckBody);
+                const beak = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: 0xff6600 }));
+                beak.position.set(0, 0.2, 0.9);
+                group.add(beak);
+                group.position.y = 0.75;
             } else if (type === 'dog') {
                 hp = 15 * difficulty;
                 speed = 22; // Bem rápido
-                damage = 15 * difficulty;
+                damage = 5 * difficulty; // Reduzido
                 bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x332200 }); // laranja
                 const dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 1.2), bodyMat);
                 dogBody.position.y = 0.5;
@@ -923,8 +935,12 @@
                 takeDamage(amt) {
                     this.hp -= amt;
                     bodyMat.emissive.setHex(0xffffff);
-                    setTimeout(() => { if (bodyMat) bodyMat.emissive.setHex(type==='robot'? 0 : bodyMat.color.getHex() * 0.2); }, 100);
-                    if (this.hp <= 0 && this.alive) { this.alive = false; scene.remove(this.mesh); }
+                    setTimeout(() => { if (bodyMat) bodyMat.emissive.setHex((type==='robot' || type==='duck')? 0 : bodyMat.color.getHex() * 0.2); }, 100);
+                    if (this.hp <= 0 && this.alive) { 
+                        this.alive = false; scene.remove(this.mesh); 
+                        if (this.mesh.sniperLine) scene.remove(this.mesh.sniperLine);
+                        if (this.type === 'boss') playerWin();
+                    }
                 }
             };
         }
@@ -995,6 +1011,48 @@
                         en.fireTimer = 0;
                         fireEnemyProjectile(en.mesh.position, toPlayer, en.damage, 'bomb');
                     }
+                    
+                    // Ataque Sniper
+                    en.mesh.sniperTimer += dt;
+                    if (!en.mesh.sniperLine) {
+                        const mat = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0 });
+                        const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                        en.mesh.sniperLine = new THREE.Line(geo, mat);
+                        scene.add(en.mesh.sniperLine);
+                    }
+                    
+                    if (en.mesh.sniperTimer > 0) {
+                        en.mesh.sniperLine.material.opacity = en.mesh.sniperTimer / 5.0; // Intensifica com o tempo
+                        en.mesh.sniperLine.geometry.setFromPoints([en.mesh.position, camera.position]);
+                    }
+                    
+                    if (en.mesh.sniperTimer >= 5.0) {
+                        en.mesh.sniperTimer = 0;
+                        en.mesh.sniperLine.material.opacity = 0;
+                        
+                        // Checa se acertou (raycast simplificado de paredes)
+                        let hitWall = false;
+                        const distToP = camera.position.distanceTo(en.mesh.position);
+                        const steps = Math.floor(distToP * 5); // 5 cheques por unidade de distancia
+                        const stepVec = new THREE.Vector3().subVectors(camera.position, en.mesh.position).normalize().multiplyScalar(1/5);
+                        const testPos = en.mesh.position.clone();
+                        for (let i = 0; i < steps; i++) {
+                            testPos.add(stepVec);
+                            if (checkCollision(testPos.x, testPos.z, 0.1)) {
+                                hitWall = true; break;
+                            }
+                        }
+                        
+                        // Flash visual
+                        const flash = new THREE.PointLight(0xff0000, 10, 50);
+                        flash.position.copy(en.mesh.position);
+                        scene.add(flash);
+                        setTimeout(() => scene.remove(flash), 100);
+                        
+                        if (!hitWall) {
+                            player.takeDamage(50);
+                        }
+                    }
                     return;
                 }
 
@@ -1062,10 +1120,10 @@
                 
                 if (remove) {
                     if (p.pType === 'bomb') {
-                        for (let j=0; j<8; j++) {
-                            const angle = (Math.PI / 4) * j;
+                        for (let j=0; j<12; j++) {
+                            const angle = (Math.PI / 6) * j;
                             const fragDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
-                            fireEnemyProjectile(p.mesh.position, fragDir, p.damage/2, 'normal');
+                            fireEnemyProjectile(p.mesh.position, fragDir, 5, 'normal');
                         }
                     }
                     scene.remove(p.mesh);
@@ -1077,10 +1135,23 @@
         function playerDie() {
             document.exitPointerLock();
             document.getElementById('msg-title').innerText = 'VOCÊ FOI DESMANTELADO';
+            document.getElementById('msg-title').style.color = '#ff0055';
             document.getElementById('msg-desc').innerText = 'O Protocolo Sucata falhou.';
             document.getElementById('restart-btn').style.display = 'inline-block';
+            document.getElementById('restart-btn').innerText = 'REINICIAR';
             document.getElementById('msg-overlay').classList.remove('hidden');
             document.getElementById('msg-overlay').style.pointerEvents = 'auto'; // Habilitar clique no botão!
+        }
+
+        function playerWin() {
+            document.exitPointerLock();
+            document.getElementById('msg-title').innerText = 'VITÓRIA ABSOLUTA';
+            document.getElementById('msg-title').style.color = '#00f2ff';
+            document.getElementById('msg-desc').innerText = 'O Rei Sucata foi destruído. O Protocolo Sucata foi concluído!';
+            document.getElementById('restart-btn').style.display = 'inline-block';
+            document.getElementById('restart-btn').innerText = 'NOVA PARTIDA';
+            document.getElementById('msg-overlay').classList.remove('hidden');
+            document.getElementById('msg-overlay').style.pointerEvents = 'auto';
         }
 
         // --- LOOT ---
@@ -1156,6 +1227,12 @@
 
         function updateTimer(dt) {
             if (!gameStarted || phase === 'WAITING') return;
+
+            if (currentWave === 7 && phase === 'HORDE') {
+                document.getElementById('timer').innerText = "INFINITO";
+                return; // O chefe não tem tempo!
+            }
+
             timer -= dt;
             if (timer <= 0) {
                 if (phase === 'PREPARATION') {
@@ -1201,8 +1278,13 @@
                         let type = 'robot';
                         if (currentWave >= 5) {
                             const r = Math.random();
-                            if (r < 0.35) type = 'dog';
-                            else if (r < 0.65) type = 'drone';
+                            if (r < 0.25) type = 'dog';
+                            else if (r < 0.55) type = 'drone';
+                            else if (r < 0.75) type = 'duck';
+                        } else if (currentWave >= 4) {
+                            const r = Math.random();
+                            if (r < 0.2) type = 'duck';
+                            else if (r < 0.5) type = 'drone';
                         } else if (currentWave >= 2) {
                             if (Math.random() < 0.4) type = 'drone';
                         }

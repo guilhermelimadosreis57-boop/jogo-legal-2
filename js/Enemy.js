@@ -12,17 +12,21 @@ export class Enemy {
         this.fireTimer = 0;
 
         if (this.type === 'boss') {
-            this.hp = 2000;
+            this.hp = 10000;
             this.speed = 3;
             this.damage = 30;
         } else if (this.type === 'drone') {
             this.hp = 30 * difficulty;
             this.speed = 5;
             this.damage = 5 * difficulty;
+        } else if (this.type === 'duck') {
+            this.hp = 150 * difficulty;
+            this.speed = 2;
+            this.damage = 25 * difficulty;
         } else if (this.type === 'dog') {
             this.hp = 15 * difficulty;
             this.speed = 22;
-            this.damage = 15 * difficulty;
+            this.damage = 5 * difficulty;
         } else {
             this.hp = 50 + difficulty;
             this.speed = 7;
@@ -31,7 +35,8 @@ export class Enemy {
 
         this.mesh = this.createMesh();
         this.mesh.position.copy(position);
-        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'dog' ? 0.5 : (this.type === 'boss' ? 1.5 : 1.5));
+        this.mesh.position.y = this.type === 'drone' ? 4 : (this.type === 'duck' ? 0.75 : (this.type === 'dog' ? 0.5 : (this.type === 'boss' ? 1.5 : 1.5)));
+        if (this.type === 'boss') this.mesh.sniperTimer = 0;
         this.scene.add(this.mesh);
 
         this.alive = true;
@@ -73,6 +78,13 @@ export class Enemy {
             const eye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshBasicMaterial({color:0xff0000}));
             eye.position.set(0, 0, 0.4);
             group.add(eye);
+        } else if (this.type === 'duck') {
+            this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 }); // Amarelo Pato
+            const duckBody = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), this.bodyMat);
+            group.add(duckBody);
+            const beak = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.8), new THREE.MeshStandardMaterial({ color: 0xff6600 }));
+            beak.position.set(0, 0.2, 0.9);
+            group.add(beak);
         } else if (this.type === 'dog') {
             this.bodyMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x332200 });
             const dogBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 1.2), this.bodyMat);
@@ -152,6 +164,49 @@ export class Enemy {
                 this.fireTimer = 0;
                 this.game.fireEnemyProjectile(this.mesh.position, toPlayer, this.damage, 'bomb');
             }
+            
+            // Ataque Sniper
+            this.mesh.sniperTimer += delta;
+            if (!this.mesh.sniperLine) {
+                const mat = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0 });
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                this.mesh.sniperLine = new THREE.Line(geo, mat);
+                this.scene.add(this.mesh.sniperLine);
+            }
+            
+            if (this.mesh.sniperTimer > 0) {
+                this.mesh.sniperLine.material.opacity = this.mesh.sniperTimer / 5.0; // Intensifica com o tempo
+                this.mesh.sniperLine.geometry.setFromPoints([this.mesh.position, this.player.camera.position]);
+            }
+            
+            if (this.mesh.sniperTimer >= 5.0) {
+                this.mesh.sniperTimer = 0;
+                this.mesh.sniperLine.material.opacity = 0;
+                
+                // Checa se acertou (raycast simplificado de paredes)
+                let hitWall = false;
+                const distToP = this.player.camera.position.distanceTo(this.mesh.position);
+                const steps = Math.floor(distToP * 5); // 5 cheques por unidade de distancia
+                const stepVec = new THREE.Vector3().subVectors(this.player.camera.position, this.mesh.position).normalize().multiplyScalar(1/5);
+                const testPos = this.mesh.position.clone();
+                for (let i = 0; i < steps; i++) {
+                    testPos.add(stepVec);
+                    if (this.world && this.world.checkCollision(testPos.x, testPos.z, 0.1)) {
+                        hitWall = true; break;
+                    }
+                }
+                
+                // Flash visual
+                const flash = new THREE.PointLight(0xff0000, 10, 50);
+                flash.position.copy(this.mesh.position);
+                this.scene.add(flash);
+                setTimeout(() => this.scene.remove(flash), 100);
+                
+                if (!hitWall) {
+                    this.player.takeDamage(50);
+                }
+            }
+            
             return;
         }
 
@@ -210,7 +265,7 @@ export class Enemy {
             this.bodyMat.emissive.setHex(0xffffff);
             setTimeout(() => {
                 if (this.bodyMat) {
-                    this.bodyMat.emissive.setHex((this.type === 'robot' || this.type === 'drone') ? 0x000000 : this.bodyMat.color.getHex() * 0.2);
+                    this.bodyMat.emissive.setHex((this.type === 'robot' || this.type === 'drone' || this.type === 'duck') ? 0x000000 : this.bodyMat.color.getHex() * 0.2);
                 }
             }, 100);
         }
@@ -222,6 +277,12 @@ export class Enemy {
 
     die() {
         this.alive = false;
+        if (this.mesh.sniperLine) this.scene.remove(this.mesh.sniperLine);
         this.scene.remove(this.mesh);
+        
+        // Se for o Boss, ganha o jogo chamando função global (se existir)
+        if (this.type === 'boss' && typeof playerWin === 'function') {
+            playerWin();
+        }
     }
 }
