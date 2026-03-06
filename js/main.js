@@ -189,7 +189,8 @@ class Game {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        const delta = this.clock.getDelta();
+        let delta = this.clock.getDelta();
+        if (delta > 0.1) delta = 0.1; // Cap to prevent teleporting
 
         // Atualiza jogador apenas se pointer lock ativo
         if (document.pointerLockElement) {

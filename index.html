@@ -633,22 +633,26 @@
                     case 'KeyG': throwGrenade(); break;
                     case 'KeyM':
                         if (isDevMode) {
-                            const w = prompt('Ir para horda (1-7):');
-                            if (w && !isNaN(w)) {
-                                currentWave = parseInt(w);
-                                phase = 'WAITING';
-                                timer = 0;
-                                bossSpawned = false;
-                                enemies.forEach(e => scene.remove(e.mesh));
-                                enemies = [];
-                                startPreparation();
-                            }
+                            // Using prompt releases pointer lock, which is fine, but we need to unlock and re-lock
+                            document.exitPointerLock();
+                            setTimeout(() => {
+                                const w = prompt('Ir para horda (1-7):');
+                                if (w && !isNaN(w)) {
+                                    currentWave = parseInt(w);
+                                    phase = 'WAITING';
+                                    timer = 0;
+                                    bossSpawned = false;
+                                    enemies.forEach(e => scene.remove(e.mesh));
+                                    enemies = [];
+                                    startPreparation();
+                                }
+                            }, 100);
                         }
                         break;
                     case 'KeyN':
                         if (isDevMode) {
                             isImmortal = !isImmortal;
-                            alert('Imortalidade: ' + (isImmortal ? 'ON' : 'OFF'));
+                            showMsg('MODO DEUS', isImmortal ? 'ATIVADO' : 'DESATIVADO');
                         }
                         break;
                 }
@@ -666,7 +670,9 @@
             document.getElementById('dev-btn').addEventListener('click', () => {
                 isDevMode = !isDevMode;
                 document.getElementById('dev-btn').innerText = 'DEV MODE: ' + (isDevMode ? 'ON' : 'OFF');
-                if(isDevMode) alert('Dev Mode Ativado!\nM -> Pular para horda\nN -> Ligar/Desligar Imortalidade');
+                if(isDevMode) {
+                    showMsg('DEV MODE ATIVADO', 'M para Pular Horda | N para Imortalidade');
+                }
             });
         }
 
@@ -1169,7 +1175,8 @@
         // --- LOOP PRINCIPAL ---
         function animate() {
             requestAnimationFrame(animate);
-            const dt = clock.getDelta();
+            let dt = clock.getDelta();
+            if (dt > 0.1) dt = 0.1; // Limitador de delta para evitar dobras e falhas da física
 
             updatePlayer(dt);
             updateTimer(dt);
