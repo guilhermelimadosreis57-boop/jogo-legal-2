@@ -422,7 +422,7 @@
         // --- VARIÁVEIS GLOBAIS ---
         let scene, camera, renderer, clock;
         let enemies = [], loots = [];
-        let currentWave = 1, maxWaves = 6;
+        let currentWave = 1, maxWaves = 7;
         let phase = 'WAITING', timer = 30, gameStarted = false;
         let bossSpawned = false;
         let isReloading = false;
@@ -1312,8 +1312,12 @@
             // Spawn inimigos na horda
             if (phase === 'HORDE') {
                 const alive = enemies.filter(e => e.alive).length;
-                if (currentWave === 6) {
-                    if (alive === 0 && !bossSpawned) {
+                if (currentWave === 7) {
+                    if (!bossSpawned) {
+                        // Limpa inimigos pequenos sobreviventes para o duelo final
+                        enemies.forEach(en => { if(en.alive) { en.alive = false; scene.remove(en.mesh); } });
+                        enemies = [];
+                        
                         const sp = new THREE.Vector3(0, 0, 0);
                         enemies.push(createEnemy(sp, currentWave, 'boss'));
                         bossSpawned = true;
@@ -1322,12 +1326,12 @@
                     const sp = new THREE.Vector3((Math.random() - 0.5) * 90, 0, (Math.random() - 0.5) * 90);
                     if (sp.distanceTo(camera.position) > 20) {
                         let type = 'robot';
-                        if (currentWave >= 5) {
+                        if (currentWave >= 6) {
                             const r = Math.random();
-                            if (r < 0.25) type = 'dog';
-                            else if (r < 0.55) type = 'drone';
-                            else if (r < 0.75) type = 'duck';
-                        } else if (currentWave >= 4) {
+                            if (r < 0.3) type = 'dog';
+                            else if (r < 0.6) type = 'drone';
+                            else if (r < 0.8) type = 'duck';
+                        } else if (currentWave >= 5) {
                             const r = Math.random();
                             if (r < 0.2) type = 'duck';
                             else if (r < 0.5) type = 'drone';
